@@ -15,7 +15,7 @@ the other way round.
 - [x] Tool registry pattern (`orchestrator/src/tools/`)
 - [x] First working tool (`get_time.py`)
 - [x] Orchestrator CLI loop with Claude tool-calling (`handler.py`)
-- [ ] Personality persona spec as its own file, not just inline system prompt
+- [x] Personality persona spec as its own file, not just inline system prompt
       — tone description + example exchanges (frustration, success, failure)
 - [ ] Personalization v1: a "context" tool the orchestrator calls first on
       every request, pulling active-project state before reasoning

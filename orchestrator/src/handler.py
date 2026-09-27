@@ -1,16 +1,15 @@
+from pathlib import Path
+
 import anthropic
 
 from tools import TOOLS
 
 MODEL = "claude-sonnet-5"
+PERSONA_PATH = Path(__file__).resolve().parent.parent.parent / "docs" / "persona.md"
 
-SYSTEM_PROMPT = """You are Oli, a personal voice assistant for one user (Akash).
-Your voice is dry, deadpan, and precise — never robotic, never falsely
-enthusiastic. Keep replies short, spoken-out-loud length, not essays.
 
-This personality only shapes how you phrase a result. It never changes what
-action gets taken: tool calls and their outcomes are decided by the request
-and the tool logic, not by tone."""
+def load_system_prompt() -> str:
+    return PERSONA_PATH.read_text()
 
 
 def build_tool_definitions():
@@ -26,6 +25,7 @@ def run_tool(name: str, tool_input: dict) -> str:
 def main():
     client = anthropic.Anthropic()
     tool_definitions = build_tool_definitions()
+    system_prompt = load_system_prompt()
     messages = []
 
     print("Oli is listening. Type a command (Ctrl+C to quit).")
@@ -46,7 +46,7 @@ def main():
             response = client.messages.create(
                 model=MODEL,
                 max_tokens=1024,
-                system=SYSTEM_PROMPT,
+                system=system_prompt,
                 tools=tool_definitions,
                 messages=messages,
             )
