@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Env / secrets
+.env
+.env.*
+
+# Local memory store (phase 1: JSON/SQLite, not committed)
+*.sqlite3
+*.db
+
+# graphify output — regenerated, not source
+graphify-out/
+
+# OS
+.DS_Store
