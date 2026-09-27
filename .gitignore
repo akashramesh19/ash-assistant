@@ -12,6 +12,7 @@ venv/
 # Local memory store (phase 1: JSON/SQLite, not committed)
 *.sqlite3
 *.db
+orchestrator/data/memory.json
 
 # graphify output — regenerated, not source
 graphify-out/
