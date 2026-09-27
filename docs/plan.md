@@ -17,9 +17,9 @@ the other way round.
 - [x] Orchestrator CLI loop with Claude tool-calling (`handler.py`)
 - [x] Personality persona spec as its own file, not just inline system prompt
       — tone description + example exchanges (frustration, success, failure)
-- [ ] Personalization v1: a "context" tool the orchestrator calls first on
+- [x] Personalization v1: a "context" tool the orchestrator calls first on
       every request, pulling active-project state before reasoning
-- [ ] Local memory store (start simple — a JSON file or SQLite is fine for
+- [x] Local memory store (start simple — a JSON file or SQLite is fine for
       phase 1; DynamoDB comes when this deploys to AWS)
 - [ ] 2–3 more real tools: file move/create-folder, reminders (even a stub),
       weather
@@ -59,8 +59,13 @@ Revisited once phases 1–3 are in daily use, not before.
       real interaction data, for routine command routing — Claude stays the
       brain for anything non-routine. This depends on having real usage data,
       which doesn't exist until phases 1–3 have been lived with for a while.
-- [ ] Infra hardening: move from local memory store to DynamoDB, orchestrator
-      from local CLI to actual Lambda + API Gateway deployment via Terraform
+- [ ] Memory model rebuild: replace the flat JSON store with a graph model
+      (nodes: people/projects/tasks/facts, edges: relationships) — see
+      `decisions.md`'s "Memory model: graph-based" entry. Revisit the
+      DynamoDB choice at this point (adjacency-list design vs. a dedicated
+      graph store) rather than assuming it holds unmodified
+- [ ] Infra hardening: orchestrator from local CLI to actual Lambda + API
+      Gateway deployment via Terraform
 
 ## Cost tracking (see `decisions.md` for the reasoning)
 

@@ -74,6 +74,31 @@ collision with an existing GitHub personal-assistant project of the same
 name, and locked it anyway since this isn't going to be sold or trademarked.
 Not reopening this again without a real reason.
 
+## Memory model: graph-based, deferred to Phase 4
+
+Phase 1's flat JSON store (`active_project` / `standing_facts` /
+`recent_commands`) is deliberately simple and stays that way through phase 1
+— it unblocks the tools/wake-word/STT/TTS work still needed before the
+2026-10-25 deadline, and a flat store is genuinely fine at this data volume.
+
+But the long-term intent is for Oli's memory to be a graph, not a flat
+store: nodes for people, projects, tasks, and standing facts, edges for how
+they relate. Personalization is the actual differentiator for this project
+(see "Personalization design" above), and personalization gets more honest
+the more it can represent relationships ("this fact is about this project,
+raised by this person") instead of independent lists. A flat key-value store
+stops being able to express that as memory grows; a graph is built for
+exactly that query shape.
+
+Deliberately not building this now — logging it here so it isn't
+relitigated as a surprise later, and so Phase 4's "infra hardening" line
+means something specific: replace the flat store with a graph model once
+real usage data exists to design the schema against, not before. This also
+changes the AWS-side target: DynamoDB alone doesn't do graph traversal
+natively (would need an adjacency-list table design, or a dedicated graph
+store like Neptune) — revisit the "Memory/state: DynamoDB" decision above
+at that point rather than assuming it still holds unmodified.
+
 ## Fine-tuning: deliberately not scheduled
 
 The idea (LoRA/QLoRA on an open model, using real usage logs, for routine

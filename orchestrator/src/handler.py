@@ -2,6 +2,7 @@ from pathlib import Path
 
 import anthropic
 
+from context import get_context, record_command
 from tools import TOOLS
 
 MODEL = "claude-sonnet-5"
@@ -25,7 +26,7 @@ def run_tool(name: str, tool_input: dict) -> str:
 def main():
     client = anthropic.Anthropic()
     tool_definitions = build_tool_definitions()
-    system_prompt = load_system_prompt()
+    persona = load_system_prompt()
     messages = []
 
     print("Oli is listening. Type a command (Ctrl+C to quit).")
@@ -41,6 +42,7 @@ def main():
             continue
 
         messages.append({"role": "user", "content": user_input})
+        system_prompt = f"{persona}\n\n## Context\n{get_context()}"
 
         while True:
             response = client.messages.create(
@@ -72,6 +74,8 @@ def main():
         for block in response.content:
             if block.type == "text":
                 print(block.text)
+
+        record_command(user_input)
 
 
 if __name__ == "__main__":
