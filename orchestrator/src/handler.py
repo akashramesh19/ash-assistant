@@ -4,6 +4,7 @@ from pathlib import Path
 import anthropic
 
 from context import get_context, record_command
+from providers.claude import to_claude_tools
 from tools import TOOLS
 
 MODEL = "claude-sonnet-5"
@@ -41,7 +42,7 @@ def create_responder():
             "Run: export ANTHROPIC_API_KEY=... (then start Ash again)"
         )
     client = anthropic.Anthropic()
-    tool_definitions = build_tool_definitions()
+    tool_definitions = to_claude_tools(build_tool_definitions())
     persona = load_system_prompt()
     messages = []
 

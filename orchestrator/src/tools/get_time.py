@@ -3,7 +3,7 @@ from datetime import datetime
 TOOL_DEFINITION = {
     "name": "get_time",
     "description": "Get the current local date and time.",
-    "input_schema": {
+    "parameters": {
         "type": "object",
         "properties": {},
         "required": [],

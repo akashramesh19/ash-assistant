@@ -35,7 +35,7 @@ TOOL_DEFINITION = {
         "location (detected automatically); pass it only when the user "
         "names a specific place."
     ),
-    "input_schema": {
+    "parameters": {
         "type": "object",
         "properties": {
             "location": {

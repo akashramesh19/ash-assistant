@@ -61,7 +61,16 @@ def test_plain_reply(monkeypatch):
 
 def test_tool_call_runs_tool_and_reports_it(monkeypatch):
     monkeypatch.setitem(
-        handler.TOOLS, "get_weather", SimpleNamespace(run=lambda **kw: f"{kw['location']}: 14°C", TOOL_DEFINITION={})
+        handler.TOOLS,
+        "get_weather",
+        SimpleNamespace(
+            run=lambda **kw: f"{kw['location']}: 14°C",
+            TOOL_DEFINITION={
+                "name": "get_weather",
+                "description": "fake",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        ),
     )
     respond, client = make_responder(
         monkeypatch,
