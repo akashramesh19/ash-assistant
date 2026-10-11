@@ -1,6 +1,6 @@
 # Workflows
 
-How work on Oli actually gets done day to day — commands, git conventions,
+How work on Ash actually gets done day to day — commands, git conventions,
 and how a Claude Code session should behave in this repo. Read alongside
 `CLAUDE.md` (what this is, core principles) and `plan.md` (what's next).
 

@@ -1,16 +1,18 @@
-# Oli
+# Ash
 
 ## What this is
 
-Oli is a personal voice assistant, built and used by one person (Akash), not a
+Ash is a personal voice assistant, built and used by one person (Akash), not a
 product for sale. It is not a generic Alexa clone: the differentiator is
 **personalization** (persistent memory of active projects, context, and
 phrasing habits) and a **personality layer** (dry, deadpan, precise — never
 robotic, never falsely enthusiastic) sitting on top of real LLM reasoning
 rather than fixed intent matching.
 
-The name "Oli" has no special meaning attached — it was picked at the end of
-a long naming detour and locked in on the spot. Nothing more to read into it.
+The name "Ash" comes from Akash — this is a personal project built for one
+person, and the name reflects that directly. Previously named "Oli" after a
+long naming detour (see `docs/decisions.md`); renamed once a reason that
+actually mattered came up, not on a whim.
 
 This project doubles as portfolio work for Akash's software engineering job
 search in Australia (junior/graduate full-stack + technical roles). The AWS
@@ -26,7 +28,7 @@ Never let these blur:
   phrased. A destructive action (delete, overwrite) always requires an
   explicit confirmation step, regardless of tone.
 - **Personality layer** — once the action is decided/executed, the response
-  wording goes through Oli's voice (system prompt in `orchestrator/src/handler.py`).
+  wording goes through Ash's voice (system prompt in `orchestrator/src/handler.py`).
   Wit lives here only. It never changes what actually got executed.
 
 ## Architecture (current target)
@@ -46,7 +48,7 @@ talks to Claude and to DynamoDB — devices never call either directly.
 ## Repo layout
 
 ```
-oli/
+ash-assistant/
 ├── orchestrator/        # the brain — deployed to AWS
 │   ├── src/
 │   │   ├── tools/        # one file per tool + registry in __init__.py
@@ -76,7 +78,7 @@ oli/
 | Phone app | Kotlin, native Android | Call/SMS/contacts permissions are more predictable native than via Flutter |
 | IaC | Terraform | Reusable, versioned, overlaps with AWS cert material |
 | Memory/state | DynamoDB | Serverless, scales to zero, free-tier friendly |
-| Infra | Lambda + API Gateway | Pay-per-invocation; sits idle at $0 when nobody's talking to Oli |
+| Infra | Lambda + API Gateway | Pay-per-invocation; sits idle at $0 when nobody's talking to Ash |
 
 ## Phases
 
@@ -107,7 +109,7 @@ See `docs/plan.md` for the full roadmap with dates. Summary:
   above. This is the one architectural rule not to compromise on for
   convenience.
 - Don't add scope beyond what's asked. This project already had one long
-  naming detour — resist re-opening settled decisions (the name is Oli, full
+  naming detour — resist re-opening settled decisions (the name is Ash, full
   stop) unless he raises it again himself.
 
 ## Current status
@@ -116,7 +118,7 @@ Phase 1 in progress. Working so far:
 - `orchestrator/src/tools/` — tool registry pattern (`__init__.py` + one file
   per tool), `get_time.py` as the first proof-of-concept tool.
 - `orchestrator/src/handler.py` — local CLI loop: takes text input, runs the
-  Claude tool-calling loop, replies in Oli's voice. Not yet deployed to
+  Claude tool-calling loop, replies in Ash's voice. Not yet deployed to
   Lambda. Not yet wired to real STT/TTS or DynamoDB memory.
 
 Not started: personalization/memory design (see `docs/decisions.md` for the

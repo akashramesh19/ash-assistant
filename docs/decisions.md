@@ -43,18 +43,30 @@ battery. No such constraint on laptop or Pi, so wake word is fine there.
 
 ## Wake word: use the full name, not a shortened trigger
 
-One-syllable or overly common trigger words (tested: "Vaan", "Ash") produce
-too many false positives/misses for wake-word engines (Porcupine,
-openWakeWord) — not enough distinct audio pattern, or the word occurs too
-often in normal speech. Use "Hey Oli" as the tested wake phrase, same pattern
-Siri/Alexa/Google use for their own short names.
+One-syllable or overly common trigger words used bare, with no "Hey" prefix
+(tested: "Vaan", "Ash") produce too many false positives/misses for
+wake-word engines (Porcupine, openWakeWord) — not enough distinct audio
+pattern, or the word occurs too often in normal speech. Fix: always use the
+"Hey <name>" pattern, same as Siri/Alexa/Google do for their own short
+names — never the bare name alone.
+
+This was originally read as ruling out "Ash" as a name entirely, but that
+overstated the finding: the bare-word test rejected *unprefixed* "Ash," not
+"Hey Ash." Per the "Naming: Ash" entry below, the name changed anyway, and
+the wake phrase is now **"Hey Ash"** — same mitigation pattern that made
+"Hey Oli" work, plus the household context (Tamil is the primary spoken
+language at home) meaningfully reduces how often the English word "ash"
+shows up in ambient speech, which was the other half of the original
+false-positive concern. Still, this is a claim to verify empirically the
+same way "Vaan"/"Ash" were originally tested, not assumed to be true — check
+the real false-positive rate once trained, per `pc-agent/listener/TRAINING.md`.
 
 ## Personalization design
 
 Not a bolt-on. Before every request reaches Claude, the orchestrator runs a
 context lookup (active project, standing facts, recent commands) and folds
 it into the prompt. Every completed action writes its outcome back. This is
-the actual thing that makes Oli different from Alexa — Alexa has no
+the actual thing that makes Ash different from Alexa — Alexa has no
 equivalent lookup step, reasoning alone doesn't create personalization.
 
 ## Personality layer: separate from execution, always
@@ -65,14 +77,22 @@ how the *result* gets said back, generated in a separate pass after the
 action is already decided. Never let wit affect what actually executes —
 this is the one rule not to compromise for convenience.
 
-## Naming: Oli
+## Naming: Ash (previously Oli)
 
 Long detour through Tamil, Sanskrit, Greek, Finnish, and English sky-themed
 names (Raki, Raju, Mugil, Vaanoli, Vaani, Caelum, Zenith, others) — most
 collided with existing apps/products/films. Landed on Oli, acknowledged
 collision with an existing GitHub personal-assistant project of the same
-name, and locked it anyway since this isn't going to be sold or trademarked.
-Not reopening this again without a real reason.
+name, and locked it in anyway.
+
+Reopened later and renamed to **Ash**, short for Akash — a real reason, not
+a whim: this is a personal project built for one person, and the name comes
+directly from that person rather than being arbitrary. The rename also
+touches the "Wake word" decision above, since "Ash" was a name tested and
+rejected during the original wake-word round — see that entry for why the
+rename doesn't actually contradict that earlier test. Repo and folder
+renamed to match (`oli-assistant` → `ash-assistant`). Not reopening the name
+again without a real reason, same as before.
 
 ## Memory model: graph-based, deferred to Phase 4
 
@@ -81,7 +101,7 @@ Phase 1's flat JSON store (`active_project` / `standing_facts` /
 — it unblocks the tools/wake-word/STT/TTS work still needed before the
 2026-10-25 deadline, and a flat store is genuinely fine at this data volume.
 
-But the long-term intent is for Oli's memory to be a graph, not a flat
+But the long-term intent is for Ash's memory to be a graph, not a flat
 store: nodes for people, projects, tasks, and standing facts, edges for how
 they relate. Personalization is the actual differentiator for this project
 (see "Personalization design" above), and personalization gets more honest
