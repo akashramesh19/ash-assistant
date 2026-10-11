@@ -1,9 +1,7 @@
 """The transcript -> orchestrator -> speech path, with fake audio in and out."""
 
-from types import SimpleNamespace
 
-import anthropic
-
+from providers.base import ProviderError
 from voice_loop import handle_turn
 
 
@@ -45,7 +43,7 @@ def test_empty_transcript_is_skipped():
 
 def test_api_error_is_logged_not_raised_and_nothing_is_spoken():
     def respond(text, on_tool_call=None):
-        raise anthropic.APIConnectionError(request=SimpleNamespace())
+        raise ProviderError("APIConnectionError: down")
 
     logs, spoken = run_turn(respond)
     assert spoken == []

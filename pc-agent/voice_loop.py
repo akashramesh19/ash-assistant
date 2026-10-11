@@ -15,8 +15,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "orchestrator" / "src"))
 sys.path.insert(0, str(REPO_ROOT / "pc-agent"))
 
-import anthropic  # noqa: E402
 from handler import MissingApiKeyError, create_responder  # noqa: E402
+from providers.base import ProviderError  # noqa: E402
 from listener.wake_word import listen  # noqa: E402
 from stt.whisper_stt import listen_and_transcribe  # noqa: E402
 from tts.piper_tts import speak  # noqa: E402
@@ -44,8 +44,8 @@ def handle_turn(
 
     try:
         reply = respond(transcript, on_tool_call=log_tool)
-    except anthropic.APIError as error:
-        log(f"[error] couldn't reach Claude ({type(error).__name__}): {error}")
+    except ProviderError as error:
+        log(f"[error] model call failed: {error}")
         return
     log(f"[reply] {reply!r}")
     if reply:
