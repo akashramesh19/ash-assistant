@@ -18,7 +18,23 @@ def _build_claude() -> Provider:
     return ClaudeProvider(anthropic.Anthropic(), DEFAULT_MODEL)
 
 
-BUILDERS = {"claude": _build_claude}
+def _build_matilda() -> Provider:
+    # Imported here so Claude-only setups don't need the Matilda SDK installed.
+    from matilda_agent_sdk import MatildaClient, Runner
+
+    from providers.matilda import MatildaProvider
+
+    key = os.environ.get("MATILDA_API_KEY")
+    if not key:
+        raise ProviderConfigError(
+            "MATILDA_API_KEY isn't set in this terminal. "
+            "Run: export MATILDA_API_KEY=... (then start Ash again)"
+        )
+    base_url = os.environ.get("ASH_MATILDA_BASE_URL", "https://matilda.maincode.com/api")
+    return MatildaProvider(Runner(MatildaClient(base_url=base_url, token=key)))
+
+
+BUILDERS = {"claude": _build_claude, "matilda": _build_matilda}
 
 
 def create_provider(name: str | None = None) -> Provider:

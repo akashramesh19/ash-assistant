@@ -4,7 +4,7 @@ import anthropic
 import pytest
 
 from fakes import FakeClient, response, text_block, tool_block
-from providers.base import Provider, ProviderError, ToolCall, TurnResult
+from providers.base import Provider, ProviderError, ToolCall
 from providers.claude import ClaudeProvider
 
 WEATHER = {
@@ -28,7 +28,7 @@ def test_is_a_provider():
 def test_plain_reply():
     provider, _ = make([response([text_block("Paris.")])])
     result = provider.run_turn("capital of France?", "sys", [WEATHER], lambda n, a: "")
-    assert result == TurnResult(text="Paris.", tool_calls=[])
+    assert (result.text, result.tool_calls) == ("Paris.", [])
 
 
 def test_tool_loop_runs_tool_and_records_the_call():

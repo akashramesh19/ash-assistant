@@ -25,3 +25,6 @@ pc-agent/listener/models/*.onnx
 
 # OS
 .DS_Store
+
+# Turn logs and comparison raw output
+logs/

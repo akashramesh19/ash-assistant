@@ -30,8 +30,17 @@ class ToolCall:
 
 @dataclass
 class TurnResult:
+    """total_seconds is the whole provider turn; tool_seconds is time spent in
+    our tools; model_seconds is the rest (the model call, plus anything the
+    provider does server-side). first_token_seconds is None where the provider
+    isn't streamed. Typing and pauses are never included."""
+
     text: str
     tool_calls: list[ToolCall] = field(default_factory=list)
+    total_seconds: float = 0.0
+    model_seconds: float = 0.0
+    tool_seconds: float = 0.0
+    first_token_seconds: float | None = None
 
 
 RunTool = Callable[[str, dict], str]
