@@ -8,7 +8,8 @@ import pytest
 import context
 import handler
 from fakes import FakeClient, response, text_block, tool_block
-from providers.base import ProviderError
+from providers.base import ProviderConfigError, ProviderError
+from providers.claude import ClaudeProvider
 
 
 @pytest.fixture(autouse=True)
@@ -20,13 +21,12 @@ def isolated_memory(tmp_path, monkeypatch):
 
 def make_responder(monkeypatch, script):
     client = FakeClient(script)
-    monkeypatch.setattr(handler.anthropic, "Anthropic", lambda: client)
-    return handler.create_responder(), client
+    return handler.create_responder(ClaudeProvider(client, "test-model")), client
 
 
 def test_missing_key_raises_clear_error(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY")
-    with pytest.raises(handler.MissingApiKeyError):
+    with pytest.raises(ProviderConfigError):
         handler.create_responder()
 
 

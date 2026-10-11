@@ -17,6 +17,10 @@ class ProviderError(Exception):
     already discarded the half-finished turn, so the next turn starts clean."""
 
 
+class ProviderConfigError(RuntimeError):
+    """The chosen provider can't be set up (unknown name, missing key, ...)."""
+
+
 @dataclass
 class ToolCall:
     name: str

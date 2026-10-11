@@ -1,14 +1,10 @@
-import os
 from pathlib import Path
 
-import anthropic
-
 from context import get_context, record_command
-from providers.base import ProviderError
-from providers.claude import ClaudeProvider
+from providers import create_provider
+from providers.base import ProviderConfigError, ProviderError
 from tools import TOOLS
 
-MODEL = "claude-sonnet-5"
 PERSONA_PATH = Path(__file__).resolve().parent.parent.parent / "docs" / "persona.md"
 
 
@@ -26,10 +22,6 @@ def run_tool(name: str, tool_input: dict) -> str:
     return TOOLS[name].run(**tool_input)
 
 
-class MissingApiKeyError(RuntimeError):
-    pass
-
-
 def create_responder(provider=None):
     """Returns respond(text, on_tool_call=None) -> reply text. Each responder
     keeps its own conversation (inside its provider), so typed and voice
@@ -37,13 +29,7 @@ def create_responder(provider=None):
 
     on_tool_call(name, tool_input, result) is called after each tool runs,
     for callers that want to log it."""
-    if provider is None:
-        if not os.environ.get("ANTHROPIC_API_KEY"):
-            raise MissingApiKeyError(
-                "ANTHROPIC_API_KEY isn't set in this terminal. "
-                "Run: export ANTHROPIC_API_KEY=... (then start Ash again)"
-            )
-        provider = ClaudeProvider(anthropic.Anthropic(), MODEL)
+    provider = provider or create_provider()
     tool_definitions = build_tool_definitions()
     persona = load_system_prompt()
 
@@ -61,7 +47,7 @@ def create_responder(provider=None):
 def main():
     try:
         respond = create_responder()
-    except MissingApiKeyError as error:
+    except ProviderConfigError as error:
         print(f"error: {error}")
         return
 

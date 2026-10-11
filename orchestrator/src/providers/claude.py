@@ -5,6 +5,8 @@ import anthropic
 
 from providers.base import Provider, ProviderError, ToolCall, TurnResult
 
+DEFAULT_MODEL = "claude-sonnet-5"
+
 
 def to_claude_tools(tool_definitions: list[dict]) -> list[dict]:
     """Neutral {name, description, parameters} -> Anthropic {..., input_schema}."""
