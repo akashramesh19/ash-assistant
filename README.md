@@ -1,4 +1,4 @@
-# oli-assistant
+# ash-assistant
 
 ## .gitignore rules (for Claude Code sessions)
 
