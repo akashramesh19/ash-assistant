@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import anthropic
@@ -23,24 +24,38 @@ def run_tool(name: str, tool_input: dict) -> str:
     return TOOLS[name].run(**tool_input)
 
 
-def main():
+class MissingApiKeyError(RuntimeError):
+    pass
+
+
+def create_responder():
+    """Returns respond(text, on_tool_call=None) -> reply text. Each responder
+    keeps its own conversation history, so typed and voice callers share the
+    same Claude tool loop.
+
+    on_tool_call(name, tool_input, result) is called after each tool runs,
+    for callers that want to log it."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise MissingApiKeyError(
+            "ANTHROPIC_API_KEY isn't set in this terminal. "
+            "Run: export ANTHROPIC_API_KEY=... (then start Ash again)"
+        )
     client = anthropic.Anthropic()
     tool_definitions = build_tool_definitions()
     persona = load_system_prompt()
     messages = []
 
-    print("Oli is listening. Type a command (Ctrl+C to quit).")
-
-    while True:
+    def respond(user_input: str, on_tool_call=None) -> str:
+        history_length = len(messages)
         try:
-            user_input = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            break
+            return _run_turn(user_input, on_tool_call)
+        except anthropic.APIError:
+            # Drop the half-finished turn so the next one starts from a valid
+            # history (no dangling user message or unanswered tool call).
+            del messages[history_length:]
+            raise
 
-        if not user_input:
-            continue
-
+    def _run_turn(user_input: str, on_tool_call) -> str:
         messages.append({"role": "user", "content": user_input})
         system_prompt = f"{persona}\n\n## Context\n{get_context()}"
 
@@ -62,6 +77,8 @@ def main():
                 if block.type != "tool_use":
                     continue
                 result = run_tool(block.name, block.input)
+                if on_tool_call:
+                    on_tool_call(block.name, block.input, result)
                 tool_results.append(
                     {
                         "type": "tool_result",
@@ -71,11 +88,38 @@ def main():
                 )
             messages.append({"role": "user", "content": tool_results})
 
-        for block in response.content:
-            if block.type == "text":
-                print(block.text)
-
         record_command(user_input)
+        return "\n".join(block.text for block in response.content if block.type == "text")
+
+    return respond
+
+
+def main():
+    try:
+        respond = create_responder()
+    except MissingApiKeyError as error:
+        print(f"error: {error}")
+        return
+
+    print("Ash is listening. Type a command (Ctrl+C to quit).")
+
+    while True:
+        try:
+            user_input = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+
+        if not user_input:
+            continue
+
+        try:
+            reply = respond(user_input)
+        except anthropic.APIError as error:
+            print(f"error: {type(error).__name__}: {getattr(error, 'message', error)}")
+            continue
+        if reply:
+            print(reply)
 
 
 if __name__ == "__main__":

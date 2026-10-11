@@ -17,5 +17,11 @@ orchestrator/data/memory.json
 # graphify output — regenerated, not source
 graphify-out/
 
+# Downloaded model assets — large, fetched via TRAINING.md/SETUP.md, not source
+pc-agent/tts/models/*.onnx
+pc-agent/tts/models/*.onnx.json
+pc-agent/listener/models/*.tflite
+pc-agent/listener/models/*.onnx
+
 # OS
 .DS_Store

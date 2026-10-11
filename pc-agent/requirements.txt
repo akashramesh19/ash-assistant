@@ -1,0 +1,6 @@
+openwakeword
+sounddevice
+numpy
+openai-whisper
+piper-tts
+scipy
