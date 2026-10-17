@@ -119,9 +119,15 @@ Phase 1 in progress. Working so far:
   per tool), `get_time.py` as the first proof-of-concept tool.
 - `orchestrator/src/handler.py` — local CLI loop: takes text input, runs the
   Claude tool-calling loop, replies in Ash's voice. Not yet deployed to
-  Lambda. Not yet wired to real STT/TTS or DynamoDB memory.
+  Lambda. Not yet wired to DynamoDB memory.
+- `orchestrator/src/tools/move_file.py` — moves a file inside one allowed
+  folder (`ASH_MOVE_ROOT`), asks the user to confirm first, never deletes,
+  logs every attempt. Tested by typing and by voice. Confirmation is still
+  typed at the terminal, not spoken.
+- `pc-agent/voice_loop.py` — "Hey Ash" -> Whisper -> orchestrator -> Piper,
+  working end to end. Model backend chosen with `ASH_PROVIDER` (claude or
+  matilda).
 
 Not started: personalization/memory design (see `docs/decisions.md` for the
 intended design), personality persona spec as its own versioned file (system
-prompt in `handler.py` is a first draft, not final), pc-agent listener/stt/tts,
-phone-agent, infra/Terraform, Pi deployment.
+prompt in `handler.py` is a first draft, not final), phone-agent, infra/Terraform, Pi deployment.
