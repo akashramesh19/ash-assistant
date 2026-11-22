@@ -1,12 +1,12 @@
-import os
+import time
 from pathlib import Path
 
-import anthropic
-
 from context import get_context, record_command
+from providers import create_provider
+from providers.base import ProviderConfigError, ProviderError
 from tools import TOOLS
+from turn_log import build_record, turn_log_from_env
 
-MODEL = "claude-sonnet-5"
 PERSONA_PATH = Path(__file__).resolve().parent.parent.parent / "docs" / "persona.md"
 
 
@@ -24,72 +24,38 @@ def run_tool(name: str, tool_input: dict) -> str:
     return TOOLS[name].run(**tool_input)
 
 
-class MissingApiKeyError(RuntimeError):
-    pass
-
-
-def create_responder():
+def create_responder(provider=None, turn_log=None):
     """Returns respond(text, on_tool_call=None) -> reply text. Each responder
-    keeps its own conversation history, so typed and voice callers share the
-    same Claude tool loop.
+    keeps its own conversation (inside its provider), so typed and voice
+    callers share the same tool loop.
 
     on_tool_call(name, tool_input, result) is called after each tool runs,
     for callers that want to log it."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise MissingApiKeyError(
-            "ANTHROPIC_API_KEY isn't set in this terminal. "
-            "Run: export ANTHROPIC_API_KEY=... (then start Ash again)"
-        )
-    client = anthropic.Anthropic()
+    provider = provider or create_provider()
+    turn_log = turn_log or turn_log_from_env()
     tool_definitions = build_tool_definitions()
     persona = load_system_prompt()
-    messages = []
 
     def respond(user_input: str, on_tool_call=None) -> str:
-        history_length = len(messages)
-        try:
-            return _run_turn(user_input, on_tool_call)
-        except anthropic.APIError:
-            # Drop the half-finished turn so the next one starts from a valid
-            # history (no dangling user message or unanswered tool call).
-            del messages[history_length:]
-            raise
-
-    def _run_turn(user_input: str, on_tool_call) -> str:
-        messages.append({"role": "user", "content": user_input})
         system_prompt = f"{persona}\n\n## Context\n{get_context()}"
-
-        while True:
-            response = client.messages.create(
-                model=MODEL,
-                max_tokens=1024,
-                system=system_prompt,
-                tools=tool_definitions,
-                messages=messages,
+        started = time.perf_counter()
+        try:
+            result = provider.run_turn(
+                user_input, system_prompt, tool_definitions, run_tool, on_tool_call
             )
-            messages.append({"role": "assistant", "content": response.content})
-
-            if response.stop_reason != "tool_use":
-                break
-
-            tool_results = []
-            for block in response.content:
-                if block.type != "tool_use":
-                    continue
-                result = run_tool(block.name, block.input)
-                if on_tool_call:
-                    on_tool_call(block.name, block.input, result)
-                tool_results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result,
-                    }
+        except ProviderError as error:
+            if turn_log:
+                turn_log.write(
+                    build_record(
+                        provider.name, user_input, error=str(error),
+                        elapsed_seconds=time.perf_counter() - started,
+                    )
                 )
-            messages.append({"role": "user", "content": tool_results})
-
+            raise
         record_command(user_input)
-        return "\n".join(block.text for block in response.content if block.type == "text")
+        if turn_log:
+            turn_log.write(build_record(provider.name, user_input, result))
+        return result.text
 
     return respond
 
@@ -97,7 +63,7 @@ def create_responder():
 def main():
     try:
         respond = create_responder()
-    except MissingApiKeyError as error:
+    except ProviderConfigError as error:
         print(f"error: {error}")
         return
 
@@ -115,8 +81,8 @@ def main():
 
         try:
             reply = respond(user_input)
-        except anthropic.APIError as error:
-            print(f"error: {type(error).__name__}: {getattr(error, 'message', error)}")
+        except ProviderError as error:
+            print(f"error: {error}")
             continue
         if reply:
             print(reply)

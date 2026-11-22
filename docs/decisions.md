@@ -126,3 +126,30 @@ command routing while Claude stays the brain for anything non-routine) is
 sound but depends on data that doesn't exist until phases 1–3 have real
 daily usage behind them. Training a foundation model from scratch was
 explicitly ruled out early — not achievable at individual scale, full stop.
+
+## move_file: safety rules live in code, not the prompt
+
+`move_file` is the first tool that changes things on disk, so its limits are
+enforced in `orchestrator/src/tools/move_file.py` and hold whichever model is
+calling it (Claude or Matilda), however the request was phrased:
+
+- Only paths inside one allowed folder (`ASH_MOVE_ROOT`). Paths are resolved
+  first, so `..` and symlinks that lead outside are rejected.
+- Every move is confirmed by the user before anything changes. The model has
+  no parameter that can skip or pre-answer the confirmation.
+- Replacing an existing file needs a second, separate confirmation.
+- No delete, no creating folders, no replacing folders, no moving symlinks.
+- Every attempt, allowed or not, is appended to a JSONL log
+  (`ASH_MOVE_LOG`, default `logs/move_file.jsonl`).
+
+Why code and not the system prompt: a prompt rule is a request the model can
+get wrong or be talked out of; a check in the tool can't be. This is the
+execution/personality split applied to safety — Ash's voice only describes
+what the tool actually did.
+
+Known limits, accepted for a single-user local tool: the checks run just
+before the move, so a path swapped in that instant could slip through; and
+the confirmation is currently typed at the terminal (`console_confirm`), even
+in the voice loop. Spoken confirmation can plug in through `set_confirmer`
+and hasn't been built yet. Tested by typing and by voice against
+`~/AshSandbox` on 2026-10-11.

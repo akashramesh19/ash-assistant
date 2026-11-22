@@ -22,7 +22,17 @@ the other way round.
 - [x] Local memory store (start simple — a JSON file or SQLite is fine for
       phase 1; DynamoDB comes when this deploys to AWS)
 - [ ] 2–3 more real tools: file move/create-folder, reminders (even a stub),
-      weather
+      weather. Done: `move_file` (sandboxed, confirm-first, logged; tested by
+      typing and by voice 2026-10-11) and weather. Left: reminders.
+- [x] `move_file` rename ambiguity (found in the 2026-10-11 comparison run):
+      a destination that didn't exist was treated as a new filename, so "move
+      report.txt to Trash" silently renamed it to a file called `Trash`, and the
+      confirmation read like a folder move. Matilda used this to answer "delete
+      report.txt". Nothing was deleted and nothing left the allowed folder.
+      Fixed in code: the destination must be an existing folder or a path that
+      keeps the file's name; anything else is refused before any confirmation
+      (unit-tested). Still to do: rerun prompt 6 live to confirm the models'
+      behaviour with the fix, and exercise the overwrite confirmation live.
 - [x] Train custom "Hey Ash" wake-word model (openWakeWord, synthetic data) —
       `pc-agent/listener/models/hey_ash.onnx`
 - [ ] Wake word or push-to-talk on laptop (test "Hey Ash" — bare "Ash" alone
