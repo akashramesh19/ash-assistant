@@ -153,3 +153,53 @@ the confirmation is currently typed at the terminal (`console_confirm`), even
 in the voice loop. Spoken confirmation can plug in through `set_confirmer`
 and hasn't been built yet. Tested by typing and by voice against
 `~/AshSandbox` on 2026-10-11.
+
+## Automatic provider switching
+
+Ash can now pick the model per turn (`ASH_PROVIDER=auto`) instead of being fixed
+to one. The two models differ in what they do well (Matilda searches the web, Claude
+does not), so one fixed choice loses a capability.
+
+- **Claude is the default**, and takes every tool request. Tool output is the
+  source of truth and is read aloud; in the 2026-10-11 comparison Matilda added
+  web citations and details our weather tool never returned.
+- **Matilda takes live-information questions** (news, prices, scores, "latest").
+  It searches the web server-side and Claude has no web access in Ash.
+- **Matilda is the fallback** when Claude fails, and vice versa.
+- **Routing is deterministic code, not an LLM call**, so the execution layer
+  stays literal and routing costs no tokens.
+- **A failed turn is never retried on the other model once a tool has run**, so
+  a side effect (a file move) cannot be repeated.
+
+A document/image pre-processing idea (Matilda converts, Claude reasons) was
+considered and dropped: Matilda is moving to a usage-limited plan, so it is
+not a free resource to lean on.
+
+Revisit once the turn log has real usage: the keyword rules are a first draft
+and the comparison sample behind them is small.
+
+## Ash must feel instant: acknowledge fast, do slow work in the background
+
+Ash is meant to be the thing you talk to and it answers, not something you wait
+for. Measured in the 2026-10-11 comparison: a plain reply takes about 1-1.5 s,
+and a tool turn 5-7 s (about 3 s of that is the weather tool itself, not the
+model). Multi-stage crew jobs would take far longer. So:
+
+- **Two lanes.** Conversation and quick tools stay in the foreground. Anything
+  slow (crew drafts, document work) always runs in the background and reports
+  back when done. A crew run is never part of a spoken turn.
+- **Acknowledge first.** Ash says a short acknowledgement straight away ("On
+  it", "Checking that"), chosen by code and not by a model call, then does the
+  work and reports the result. The acknowledgement never claims the outcome:
+  the result is only stated after the tool has actually returned. This keeps
+  execution and personality separate.
+- **Confirmations stay synchronous.** Anything destructive or overwriting still
+  waits for an explicit confirmation before it runs, however eager the
+  acknowledgement sounded.
+- **Start speaking early.** Stream the model's reply and begin speech on the
+  first sentence instead of waiting for the whole answer.
+- **Build order when this is picked up:** acknowledgements and streaming first
+  (felt immediately), then the background job lane, then the crew runner last.
+
+To be done on a separate branch; recorded here so later work does not
+undermine it.

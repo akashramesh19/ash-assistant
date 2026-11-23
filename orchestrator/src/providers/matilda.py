@@ -30,6 +30,13 @@ class MatildaProvider(Provider):
         self.history = []  # [{"role": "user"|"assistant", "content": text}]
         self._loop = asyncio.new_event_loop()
 
+    def replace_history(self, turns):
+        self.history = [
+            {"role": role, "content": text}
+            for user, reply in turns
+            for role, text in (("user", user), ("assistant", reply))
+        ]
+
     def run_turn(self, user_text, system_prompt, tool_definitions, run_tool, on_tool_call=None):
         tool_calls = []
         tool_seconds = 0.0

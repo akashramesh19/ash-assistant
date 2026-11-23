@@ -31,6 +31,13 @@ class ClaudeProvider(Provider):
         self.max_tokens = max_tokens
         self.messages = []  # Anthropic-format history, private to this provider
 
+    def replace_history(self, turns):
+        self.messages = [
+            {"role": role, "content": text}
+            for user, reply in turns
+            for role, text in (("user", user), ("assistant", reply))
+        ]
+
     def run_turn(self, user_text, system_prompt, tool_definitions, run_tool, on_tool_call=None):
         history_length = len(self.messages)
         try:

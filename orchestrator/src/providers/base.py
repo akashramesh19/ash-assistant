@@ -61,3 +61,8 @@ class Provider(ABC):
     ) -> TurnResult:
         """Answer one user message, running tools as the model asks.
         tool_definitions are neutral {name, description, parameters}."""
+
+    def replace_history(self, turns: list[tuple[str, str]]) -> None:
+        """Replace this provider's history with plain (user, reply) text turns.
+        Used by the router when the answering model changes. Providers that
+        keep history override this; tool exchanges are not carried across."""

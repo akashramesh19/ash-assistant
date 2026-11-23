@@ -28,3 +28,9 @@ pc-agent/listener/models/*.onnx
 
 # Turn logs and comparison raw output
 logs/
+
+# Local working notes (not committed)
+RESEARCH-NOTES.md
+
+# Local test sandbox for crew workflows (never committed)
+ash-sandbox/
