@@ -17,7 +17,9 @@ Read the task and produce a short brief:
 4. **Length and form**: rough word count and format (memo, README, spec, post).
 5. **Outline**: the section headings, in order, one line each on what goes there.
 6. **Research questions**: facts that must be checked or looked up (for Oli).
-   Only things that need the web or may have changed recently. If none, say none.
+   Only things that need the web or may have changed recently. Number them. If
+   there are none, write exactly `Research questions: none` and nothing else
+   under this heading.
 7. **Leave out**: anything the task invites but the document should not contain.
 
 Rules:

@@ -2,6 +2,7 @@ import time
 from pathlib import Path
 
 from context import get_context, record_command
+from crew.notify import set_notifier
 from providers import create_provider
 from providers.base import ProviderConfigError, ProviderError
 from tools import TOOLS
@@ -66,6 +67,9 @@ def main():
     except ProviderConfigError as error:
         print(f"error: {error}")
         return
+
+    # A background crew run reports here when it finishes (typed CLI: printed).
+    set_notifier(lambda message, detail: print(f"\n[crew] {message}" + (f" {detail}" if detail else "")))
 
     print("Ash is listening. Type a command (Ctrl+C to quit).")
 

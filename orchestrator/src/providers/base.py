@@ -41,6 +41,9 @@ class TurnResult:
     model_seconds: float = 0.0
     tool_seconds: float = 0.0
     first_token_seconds: float | None = None
+    # Tools the provider ran on its own side (e.g. Matilda's web search), by
+    # name. Not our tools; recorded so callers can see what actually happened.
+    server_tool_calls: list[str] = field(default_factory=list)
 
 
 RunTool = Callable[[str, dict], str]

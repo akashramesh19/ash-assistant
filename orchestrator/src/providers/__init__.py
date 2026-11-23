@@ -37,17 +37,24 @@ def _build_matilda() -> Provider:
 BUILDERS = {"claude": _build_claude, "matilda": _build_matilda}
 
 
-def _build_auto() -> Provider:
-    """Routing across every provider that can be set up. A provider with a
-    missing key or SDK is skipped; with only one left there is nothing to route."""
-    from providers.router import RoutingProvider
-
+def available_providers() -> tuple[dict[str, Provider], list[str]]:
+    """Every provider that can be set up, plus why the others were skipped. A
+    provider with a missing key or SDK is skipped, not fatal."""
     available, skipped = {}, []
     for name, build in BUILDERS.items():
         try:
             available[name] = build()
         except (ProviderConfigError, ImportError) as error:
             skipped.append(f"{name}: {error}")
+    return available, skipped
+
+
+def _build_auto() -> Provider:
+    """Routing across every provider that can be set up. With only one left
+    there is nothing to route."""
+    from providers.router import RoutingProvider
+
+    available, skipped = available_providers()
     if not available:
         raise ProviderConfigError("ASH_PROVIDER=auto but no provider could be set up. " + " | ".join(skipped))
     if len(available) == 1:

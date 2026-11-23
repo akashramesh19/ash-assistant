@@ -203,3 +203,39 @@ model). Multi-stage crew jobs would take far longer. So:
 
 To be done on a separate branch; recorded here so later work does not
 undermine it.
+
+## Document crew: staged drafting, cheap model drafts, strong model reviews
+
+Ash can draft documents through a crew (`run_crew`; roles in `docs/crew/`,
+roster in `orchestrator/src/crew/roster.json`): Madhi (Claude) briefs, Oli
+(Matilda) researches, Thooya (Matilda) drafts, scripted checks run, Kural
+(Claude) reviews.
+
+- **Cheap model drafts, strong model reviews.** The draft is the bulk of the
+  output tokens, and Matilda is the lower-cost model, so it writes. Kural
+  returns small find/replace edits or approves; he never re-emits the whole
+  document, which would erase the saving.
+- **Thooya is the least reliable role,** so its output never ships without the
+  scripted checks (plain code: structure, repetition, links, unsupported
+  claims) and Kural's review. Reliability and fallback live in the roster and
+  are enforced by the runner, not left to a prompt.
+- **Always in the background.** `run_crew` returns at once and the run is read
+  with `crew_status`, so Ash stays responsive (see "Ash must feel instant").
+  One run at a time, since Matilda's plan is usage-limited.
+- **Fails visibly.** If Matilda is unavailable, Thooya falls back to Claude and
+  the document is marked unresearched; if Madhi or Kural fail the run stops and
+  says which stage. Nothing is silently retried.
+- **Output stays in `ash-sandbox/`** (gitignored). The crew uses its own
+  provider instances so a background run never touches the conversation.
+
+- **Measured, not enforced, where we can't enforce.** Oli's 5-search cap can't
+  be enforced (Matilda searches server-side), so the runner records the
+  search count, warns over the cap, and marks research with no search activity
+  and no sources as unsourced.
+- **Completion is announced by code,** not a model: instant, free, and it
+  cannot claim more than the run's outcome (ready / unresearched / unreviewed /
+  failed). Ash's persona acknowledges a run when it starts and never says it
+  is finished.
+
+Open for the next iteration: whether Thooya's drafts hold up against Kural's on
+the same briefs; if they keep failing review, drafting moves back to Kural.

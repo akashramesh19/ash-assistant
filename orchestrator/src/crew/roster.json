@@ -1,0 +1,29 @@
+{
+  "madhi": {
+    "model": "claude",
+    "does": "turns a task into a brief: purpose, audience, tone, outline, research questions",
+    "reliability": "high",
+    "fallback": null
+  },
+  "oli": {
+    "model": "matilda",
+    "does": "researches the brief's questions on the web and returns sourced notes",
+    "reliability": "medium",
+    "fallback": null,
+    "max_searches": 5,
+    "if_unavailable": "skip research and mark the document unresearched"
+  },
+  "thooya": {
+    "model": "matilda",
+    "does": "writes the first draft from the brief and the research notes",
+    "reliability": "low",
+    "fallback": "claude",
+    "rule": "output never ships without the scripted checks and Kural's review"
+  },
+  "kural": {
+    "model": "claude",
+    "does": "reviews the draft against the brief; returns small edits or approves",
+    "reliability": "high",
+    "fallback": null
+  }
+}
