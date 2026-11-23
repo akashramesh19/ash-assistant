@@ -37,10 +37,33 @@ def _build_matilda() -> Provider:
 BUILDERS = {"claude": _build_claude, "matilda": _build_matilda}
 
 
+def _build_auto() -> Provider:
+    """Routing across every provider that can be set up. A provider with a
+    missing key or SDK is skipped; with only one left there is nothing to route."""
+    from providers.router import RoutingProvider
+
+    available, skipped = {}, []
+    for name, build in BUILDERS.items():
+        try:
+            available[name] = build()
+        except (ProviderConfigError, ImportError) as error:
+            skipped.append(f"{name}: {error}")
+    if not available:
+        raise ProviderConfigError("ASH_PROVIDER=auto but no provider could be set up. " + " | ".join(skipped))
+    if len(available) == 1:
+        return next(iter(available.values()))
+    default = (os.environ.get("ASH_ROUTE_DEFAULT") or "claude").strip().lower()
+    if default not in BUILDERS:
+        raise ProviderConfigError(f"unknown ASH_ROUTE_DEFAULT '{default}'. Options: {', '.join(sorted(BUILDERS))}")
+    return RoutingProvider(available, default)
+
+
 def create_provider(name: str | None = None) -> Provider:
     name = (name or os.environ.get("ASH_PROVIDER") or "claude").strip().lower()
+    if name == "auto":
+        return _build_auto()
     if name not in BUILDERS:
         raise ProviderConfigError(
-            f"unknown ASH_PROVIDER '{name}'. Options: {', '.join(sorted(BUILDERS))}"
+            f"unknown ASH_PROVIDER '{name}'. Options: auto, {', '.join(sorted(BUILDERS))}"
         )
     return BUILDERS[name]()
