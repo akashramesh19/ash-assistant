@@ -4,6 +4,8 @@ Run from the repo root: .venv/bin/python pc-agent/voice_loop.py
 Needs ANTHROPIC_API_KEY in the environment. The typed loop
 (orchestrator/src/handler.py) is unaffected by this.
 
+move_file confirmations are spoken and answered by voice (pc-agent/spoken_confirm.py).
+
 Every turn prints what Whisper heard, any tool called (with its result), and
 the reply, so failures show which stage broke.
 """
@@ -18,6 +20,8 @@ sys.path.insert(0, str(REPO_ROOT / "pc-agent"))
 from handler import create_responder  # noqa: E402
 from providers.base import ProviderConfigError, ProviderError  # noqa: E402
 from listener.wake_word import listen  # noqa: E402
+from spoken_confirm import LISTEN_SECONDS as CONFIRM_SECONDS, make_spoken_confirmer  # noqa: E402
+from tools import move_file  # noqa: E402
 from stt.whisper_stt import listen_and_transcribe  # noqa: E402
 from tts.piper_tts import speak  # noqa: E402
 
@@ -58,6 +62,11 @@ def main() -> None:
     except ProviderConfigError as error:
         print(f"error: {error}")
         return
+    # move_file asks "go ahead?" out loud and listens for the answer, instead of
+    # waiting for a typed y/N. Anything but a clear yes is a no.
+    move_file.set_confirmer(
+        make_spoken_confirmer(say=speak, listen=lambda: listen_and_transcribe(CONFIRM_SECONDS))
+    )
     try:
         listen(on_wake_word=lambda: handle_turn(respond))
     except KeyboardInterrupt:
