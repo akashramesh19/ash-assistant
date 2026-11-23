@@ -11,12 +11,14 @@ the reply, so failures show which stage broke.
 """
 
 import sys
+import threading
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "orchestrator" / "src"))
 sys.path.insert(0, str(REPO_ROOT / "pc-agent"))
 
+from crew.notify import set_notifier  # noqa: E402
 from handler import create_responder  # noqa: E402
 from providers.base import ProviderConfigError, ProviderError  # noqa: E402
 from listener.wake_word import listen  # noqa: E402
@@ -56,6 +58,19 @@ def handle_turn(
         say(reply)
 
 
+def make_announcer(say, audio_lock, log=print):
+    """Notifier for finished crew runs: speaks the message, but only when no
+    turn is using the speakers or mic, so it never talks over a conversation.
+    It waits for the current turn to finish."""
+
+    def announce(message: str, detail: str = "") -> None:
+        log(f"[crew] {message}" + (f" {detail}" if detail else ""))
+        with audio_lock:
+            say(message)
+
+    return announce
+
+
 def main() -> None:
     try:
         respond = create_responder()
@@ -67,8 +82,15 @@ def main() -> None:
     move_file.set_confirmer(
         make_spoken_confirmer(say=speak, listen=lambda: listen_and_transcribe(CONFIRM_SECONDS))
     )
+    audio_lock = threading.Lock()  # one thing at a time on the speakers and mic
+
+    def locked_turn():
+        with audio_lock:
+            handle_turn(respond)
+
+    set_notifier(make_announcer(speak, audio_lock))
     try:
-        listen(on_wake_word=lambda: handle_turn(respond))
+        listen(on_wake_word=locked_turn)
     except KeyboardInterrupt:
         print()
 

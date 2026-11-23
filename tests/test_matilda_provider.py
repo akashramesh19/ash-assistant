@@ -148,3 +148,23 @@ def test_timing_splits_tool_time_from_model_time_and_reports_first_token():
     assert result.model_seconds == pytest.approx(result.total_seconds - result.tool_seconds)
     assert result.first_token_seconds is not None
     assert result.first_token_seconds <= result.total_seconds
+
+
+def test_server_side_tool_calls_are_recorded_but_our_tools_are_not():
+    def event(tool, kind="response.tool_call.started"):
+        return SimpleNamespace(type=kind, tool=tool)
+
+    class WithEvents(FakeRunner):
+        async def run(self, agent, prompt, **kwargs):
+            result = await super().run(agent, prompt, **kwargs)
+            result.events = [event("web_search"), event("web_search"), event("get_weather"), event("web_search", "response.tool_call.completed"), SimpleNamespace(type="response.status")]
+            return result
+
+    provider = MatildaProvider(WithEvents(["Done."]))
+    result = turn(provider)
+    assert result.server_tool_calls == ["web_search", "web_search"]
+
+
+def test_no_events_means_no_server_tool_calls():
+    provider, _ = make(["Paris."])
+    assert turn(provider).server_tool_calls == []

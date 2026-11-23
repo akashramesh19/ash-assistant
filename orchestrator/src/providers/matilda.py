@@ -89,6 +89,12 @@ class MatildaProvider(Provider):
             details = "; ".join(f"{e.code}: {e.message}" for e in result.errors)
             raise ProviderError(f"stream error: {details}")
 
+        own = {definition["name"] for definition in tool_definitions}
+        server_tool_calls = [
+            event.tool
+            for event in getattr(result, "events", [])
+            if getattr(event, "type", None) == "response.tool_call.started" and event.tool not in own
+        ]
         self.history.append({"role": "user", "content": user_text})
         self.history.append({"role": "assistant", "content": result.final_output})
         total_seconds = time.perf_counter() - turn_start
@@ -101,4 +107,5 @@ class MatildaProvider(Provider):
             model_seconds=total_seconds - tool_seconds,
             tool_seconds=tool_seconds,
             first_token_seconds=None if first_token_at is None else first_token_at - turn_start,
+            server_tool_calls=server_tool_calls,
         )
