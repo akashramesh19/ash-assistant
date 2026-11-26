@@ -25,6 +25,10 @@ final class PillModel: ObservableObject {
     /// normal idle runs. Until then the turn is still inside respond(), and a
     /// crew event is stored rather than painted.
     private var awaitingReply = false
+    /// Set when listening, thinking, speaking, or a reply is applied. Cleared
+    /// on a normal idle. Stays set after a stage line is painted, so a finish
+    /// that arrives before the acknowledgement is stored instead of shown.
+    private var turnOpen = false
     static let lingerAfterIdle: TimeInterval = 5     // a reply or a finished notice stays this long after Ash stops talking
 
     private struct CrewLine {
@@ -63,6 +67,7 @@ final class PillModel: ObservableObject {
                 return
             }
             awaitingReply = false
+            turnOpen = false
             running = nil
             unseenFinished = nil
             state = .idle
@@ -73,11 +78,16 @@ final class PillModel: ObservableObject {
 
         if newState == .idle {
             awaitingReply = false
+            turnOpen = false
             if state == .reply {
                 scheduleLinger { [weak self] in self?.restoreAfterMessage() }
                 return
             }
             if state == .crew && running != nil && unseenFinished == nil {
+                return
+            }
+            if state == .crew && unseenFinished != nil {
+                restoreAfterMessage()
                 return
             }
             if state == .crew {
@@ -90,6 +100,9 @@ final class PillModel: ObservableObject {
 
         if newState == .reply {
             awaitingReply = false
+        }
+        if newState == .listening || newState == .thinking || newState == .speaking || newState == .reply {
+            turnOpen = true
         }
         state = newState
         text = line
@@ -106,7 +119,7 @@ final class PillModel: ObservableObject {
             // A finished sentence not yet shown stays queued. The new stage
             // comes back when that sentence's linger ends.
             running = line
-            if unseenFinished != nil || state == .confirm || awaitingReply {
+            if unseenFinished != nil || state == .confirm || state == .reply || awaitingReply {
                 return
             }
             dismiss?.cancel()
@@ -134,7 +147,7 @@ final class PillModel: ObservableObject {
     /// Listening, thinking, speaking, and the reply stay on screen. So does an
     /// open question, and the gap after it closes until the reply or a normal idle.
     private func holdsFinished() -> Bool {
-        if state == .confirm || awaitingReply { return true }
+        if state == .confirm || awaitingReply || turnOpen { return true }
         switch state {
         case .listening, .thinking, .speaking, .reply:
             return true
