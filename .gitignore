@@ -35,3 +35,6 @@ tts-options.md
 
 # Local test sandbox for crew workflows (never committed)
 ash-sandbox/
+
+# Swift build output
+notch-app/.build/

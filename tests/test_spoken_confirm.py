@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 
 from spoken_confirm import make_spoken_confirmer, parse_answer, speakable
@@ -99,3 +101,79 @@ def test_works_as_the_move_file_confirmer(tmp_path, monkeypatch):
         assert (root / "Archive" / "report.txt").exists()
     finally:
         move_file.set_confirmer(saved)
+
+
+def test_a_mismatched_click_stays_pending_and_silence_is_no():
+    """A click counts only for the open id. The second click is dropped.
+    No click and no clear speech is a no, including on the next question."""
+    question = "Ash wants to move 'report.txt' to 'Archive/report.txt'. Go ahead?"
+    overwrite = "'Archive/report.txt' already exists. Replace it with 'report.txt'? The existing file will be overwritten."
+    said, events, logs = [], [], []
+    started, release = threading.Event(), threading.Event()
+
+    def listen():
+        if not release.is_set():
+            started.set()
+            release.wait(2)
+            return "yes"  # would win if the click were ignored
+        confirm.on_answer(events[0]["id"], "yes")  # previous question's id
+        confirm.on_answer("debug", "yes")
+        return ""
+
+    confirm = make_spoken_confirmer(said.append, listen, logs.append, emit=events.append)
+    holder = {}
+
+    def run():
+        holder["result"] = confirm(question)
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    try:
+        assert started.wait(2)
+        confirm.on_answer("not-this-question", "yes")
+        assert thread.is_alive() and "result" not in holder  # mismatched id stays pending
+
+        confirm.on_answer(events[0]["id"], "no")
+        confirm.on_answer(events[0]["id"], "yes")  # second answer is dropped
+        assert thread.is_alive() and "result" not in holder  # the callback only stored it
+    finally:
+        release.set()
+        thread.join(2)
+    assert not thread.is_alive()
+    assert holder["result"] is False
+    assert said == [speakable(question)]
+    assert events[0] == {"type": "confirm", "id": events[0]["id"], "question": question}
+    assert "/" in events[0]["question"] and "slash" in said[0]
+
+    confirm.on_answer(events[0]["id"], "yes")  # nothing is pending
+    assert confirm(overwrite) is False
+    confirms = [event for event in events if event["type"] == "confirm"]
+    closed = [event for event in events if event["type"] == "confirm_closed"]
+    assert [event["id"] for event in confirms] == [event["id"] for event in closed]
+    assert len(set(event["id"] for event in confirms)) == 2
+    assert confirms[1]["question"] == overwrite
+    assert closed[0]["answer"] == "no"
+    assert closed[1]["answer"] == "timeout"
+
+
+@pytest.mark.parametrize(
+    "click,heard,expected",
+    [("yes", "no", False), ("no", "yes", False), ("yes", "", True)],
+)
+def test_a_click_during_listen_yields_to_a_clear_disagreement(click, heard, expected):
+    """After listen(), both answers are in hand. A clear disagreement is no.
+    An empty transcript leaves the click in force."""
+    events = []
+
+    def listen():
+        confirm.on_answer(events[0]["id"], click)
+        return heard
+
+    confirm = make_spoken_confirmer(lambda text: None, listen, lambda line: None, emit=events.append)
+    assert confirm("Go ahead?") is expected
+    closed = [event for event in events if event["type"] == "confirm_closed"]
+    assert closed == [{
+        "type": "confirm_closed",
+        "id": events[0]["id"],
+        "answer": "yes" if expected else "no",
+    }]

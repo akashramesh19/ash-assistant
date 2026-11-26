@@ -239,3 +239,12 @@ roster in `orchestrator/src/crew/roster.json`): Madhi (Claude) briefs, Oli
 
 Open for the next iteration: whether Thooya's drafts hold up against Kural's on
 the same briefs; if they keep failing review, drafting moves back to Kural.
+
+## Notch app: a thin native UI over the Python agent
+
+The Mac front-end is a small SwiftUI/AppKit app at the notch, talking to the
+existing Python voice agent over a local socket. Python keeps the wake word,
+Whisper, Piper and the orchestrator, so nothing is rewritten and the Raspberry
+Pi redeploy stays pure Python. Confirmation answers are validated in Python
+(the id has to match, a click and a clear transcript that disagree are a no,
+silence is a no), never trusted to the UI. Full design in `docs/notch-design.md`.
