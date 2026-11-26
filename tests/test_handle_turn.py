@@ -33,6 +33,25 @@ def test_transcript_goes_to_respond_and_reply_is_spoken():
     assert any("[reply]" in line for line in logs)
 
 
+def test_listen_details_are_logged_with_the_transcript():
+    import stt.whisper_stt as whisper_stt
+
+    def transcribe():
+        whisper_stt.last_capture = {
+            "audio_s": 4.2,
+            "stop": "pause",
+            "model": "base",
+            "dropped": None,
+        }
+        return "what time is it"
+
+    logs, spoken = [], []
+    handle_turn(lambda text, on_tool_call=None: "Four.", transcribe=transcribe, say=spoken.append, log=logs.append)
+    line = next(line for line in logs if line.startswith("[whisper] heard:"))
+    assert "what time is it" in line
+    assert "audio=4.2s" in line and "stop=pause" in line and "model=base" in line
+
+
 def test_empty_transcript_is_skipped():
     called = []
     logs, spoken = run_turn(lambda text, on_tool_call=None: called.append(text), transcript="")

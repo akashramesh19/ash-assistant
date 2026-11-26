@@ -120,13 +120,12 @@ Suggested order when revisited: 1 and 2 first (an afternoon), then a
 bake-off between Kokoro and one cloud voice, and decide on audio quality vs.
 the Pi's constraints and the "text stays local" preference.
 
-### Fixed 5-second recording
+### Endpointer (pause-based stop; previously a fixed 5 s take)
 
-`whisper_stt.record()` records for a fixed duration: it cuts off long
-questions and wastes time on short ones. Replace with voice activity
-detection (stop after a pause). openWakeWord already bundles a Silero VAD
-model that can be reused. Also decide whether the wake word tail ("hey ash"
-audio) should be trimmed from the question.
+Recording no longer uses a fixed 5-second window. `pc-agent/stt/endpoint.py`
+stops the take on a pause: it waits until speech starts, then ends the turn
+after continuous quiet. A short breath does not end the turn. The old fixed
+take cut off long questions and padded short ones.
 
 ### Wake word not yet measured
 

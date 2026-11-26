@@ -12,6 +12,7 @@ the reply, so failures show which stage broke.
 
 import sys
 import threading
+import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -24,23 +25,28 @@ from providers.base import ProviderConfigError, ProviderError  # noqa: E402
 from listener.wake_word import listen  # noqa: E402
 from spoken_confirm import LISTEN_SECONDS as CONFIRM_SECONDS, make_spoken_confirmer  # noqa: E402
 from tools import move_file  # noqa: E402
-from stt.whisper_stt import listen_and_transcribe  # noqa: E402
+import stt.whisper_stt as whisper_stt  # noqa: E402
 from tts.piper_tts import speak  # noqa: E402
 
-RECORD_SECONDS = 5.0
+RECORD_SECONDS = 5.0  # how long to wait for speech to start; recording ends on a pause
 
 
 def handle_turn(
     respond,
-    transcribe=lambda: listen_and_transcribe(RECORD_SECONDS),
+    transcribe=lambda: whisper_stt.listen_and_transcribe(RECORD_SECONDS),
     say=speak,
     log=print,
 ) -> None:
     """One wake-word-to-reply turn. The audio functions are parameters so the
     transcript -> handler path can be tested without a mic or speakers."""
     log("[wake] Hey Ash detected. Speak now...")
+    t0 = time.perf_counter()
+    whisper_stt.last_capture = None
     transcript = transcribe()
-    log(f"[whisper] heard: {transcript!r}")
+    t_heard = time.perf_counter()
+    info = whisper_stt.last_capture
+    detail = f" {whisper_stt.format_capture(info)}" if info else ""
+    log(f"[whisper] heard: {transcript!r}{detail} (listen + transcribe {t_heard - t0:.1f}s)")
     if not transcript:
         log("[skip] empty transcript, nothing to send")
         return
@@ -53,9 +59,11 @@ def handle_turn(
     except ProviderError as error:
         log(f"[error] model call failed: {error}")
         return
-    log(f"[reply] {reply!r}")
+    t_reply = time.perf_counter()
+    log(f"[reply] {reply!r} (model {t_reply - t_heard:.1f}s)")
     if reply:
         say(reply)
+        log(f"[timing] speak {time.perf_counter() - t_reply:.1f}s; end of speech to reply ready {t_reply - t_heard:.1f}s")
 
 
 def make_announcer(say, audio_lock, log=print):
@@ -80,7 +88,7 @@ def main() -> None:
     # move_file asks "go ahead?" out loud and listens for the answer, instead of
     # waiting for a typed y/N. Anything but a clear yes is a no.
     move_file.set_confirmer(
-        make_spoken_confirmer(say=speak, listen=lambda: listen_and_transcribe(CONFIRM_SECONDS))
+        make_spoken_confirmer(say=speak, listen=lambda: whisper_stt.listen_and_transcribe(CONFIRM_SECONDS))
     )
     audio_lock = threading.Lock()  # one thing at a time on the speakers and mic
 
