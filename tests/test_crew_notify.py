@@ -114,3 +114,7 @@ def test_persona_tells_ash_how_to_handle_a_crew_run():
     persona = (Path(__file__).resolve().parents[1] / "docs" / "persona.md").read_text()
     assert "run_crew" in persona and "crew_status" in persona
     assert "Never say it is finished" in persona
+    assert "one spoken sentence" in persona and "straight answer" in persona
+    move = persona.split("Just move the damn file already.", 1)[1].split("> User:", 1)[0]
+    assert 'Ash: "Moved, Sir."' in move
+    assert "second" not in move.lower()
