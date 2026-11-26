@@ -60,12 +60,16 @@ Confirmation rules (execution layer, enforced in Python, not in the UI):
   persona jokes (see `persona.md`).
 
 The pill, separate from those rules:
-- A crew event during a confirmation is stored. The question, the id, and the
-  buttons stay until the answer. The stored line is shown after that turn's
-  reply has lingered.
+- A crew event during a confirmation is stored, and so is one that arrives
+  after the question closes until the reply is applied. The question, the id,
+  and the buttons stay until the answer. A finished event during listening,
+  thinking, speaking, or the reply is stored too. The stored line is shown
+  after that turn's reply has lingered.
 - A `running` line stays until the next crew event. `idle` leaves it up, and
-  when a reply's linger ends the current running line comes back. `done`,
-  `done-unreviewed`, and `failed` linger like a reply and are shown once.
+  when a reply's linger ends the current running line comes back. A finished
+  sentence shown over a stage line, or on a blank pill, lingers for 5 seconds
+  and is shown once. If a finished sentence and a newer stage are both waiting,
+  the finished sentence shows first and the stage line comes back afterwards.
 
 ## Window
 

@@ -18,9 +18,13 @@ final class PillModel: ObservableObject {
     /// The stage line currently in force. Idle leaves it up. A reply covers it,
     /// and the line comes back when that reply's linger ends.
     private var running: CrewLine?
-    /// A finished notice that arrived while a confirmation was open. Shown once,
-    /// after that turn's reply has lingered.
+    /// A finished notice not yet shown. Shown once, after the reply has lingered,
+    /// or straight away when the pill is on a stage line or blank between turns.
     private var unseenFinished: CrewLine?
+    /// Set when a confirmation closes, cleared when the reply is applied or a
+    /// normal idle runs. Until then the turn is still inside respond(), and a
+    /// crew event is stored rather than painted.
+    private var awaitingReply = false
     static let lingerAfterIdle: TimeInterval = 5     // a reply or a finished notice stays this long after Ash stops talking
 
     private struct CrewLine {
@@ -55,8 +59,10 @@ final class PillModel: ObservableObject {
                 state = .idle
                 text = ""
                 self.confirmID = ""
+                awaitingReply = true
                 return
             }
+            awaitingReply = false
             running = nil
             unseenFinished = nil
             state = .idle
@@ -66,6 +72,7 @@ final class PillModel: ObservableObject {
         }
 
         if newState == .idle {
+            awaitingReply = false
             if state == .reply {
                 scheduleLinger { [weak self] in self?.restoreAfterMessage() }
                 return
@@ -81,62 +88,83 @@ final class PillModel: ObservableObject {
             return
         }
 
+        if newState == .reply {
+            awaitingReply = false
+        }
         state = newState
         text = line
         self.confirmID = confirmID
     }
 
-    /// A crew event during a confirmation is stored. The question, the id, and
-    /// the buttons stay. Anywhere else, it is shown now.
+    /// A crew event during a confirmation, or before that turn's reply, is
+    /// stored. A finished sentence during the turn is stored too. A finished
+    /// sentence that lands on a stage line, or on a blank pill, is shown and
+    /// lingers.
     private func holdCrew(status: String, message: String) {
         let line = CrewLine(status: status, message: message)
-        if state == .confirm {
-            if Self.isRunning(status) {
-                running = line
-                unseenFinished = nil
-            } else {
-                running = nil
-                unseenFinished = line
-            }
-            return
-        }
-        let idleAlreadyLanded = dismiss != nil
-        dismiss?.cancel()
-        dismiss = nil
         if Self.isRunning(status) {
+            // A finished sentence not yet shown stays queued. The new stage
+            // comes back when that sentence's linger ends.
             running = line
-            unseenFinished = nil
+            if unseenFinished != nil || state == .confirm || awaitingReply {
+                return
+            }
+            dismiss?.cancel()
+            dismiss = nil
             state = .crew
             text = message
             confirmID = ""
             return
         }
+        if holdsFinished() {
+            running = nil
+            unseenFinished = line
+            return
+        }
+        dismiss?.cancel()
+        dismiss = nil
         running = nil
         unseenFinished = nil
         state = .crew
         text = message
         confirmID = ""
-        // Idle already started a linger for the reply this notice just replaced.
-        // Start that linger again, or the finished line would stay up.
-        if idleAlreadyLanded {
-            scheduleLinger { [weak self] in self?.blank() }
+        scheduleLinger { [weak self] in self?.blank() }
+    }
+
+    /// Listening, thinking, speaking, and the reply stay on screen. So does an
+    /// open question, and the gap after it closes until the reply or a normal idle.
+    private func holdsFinished() -> Bool {
+        if state == .confirm || awaitingReply { return true }
+        switch state {
+        case .listening, .thinking, .speaking, .reply:
+            return true
+        default:
+            return false
         }
     }
 
-    /// After a reply's linger: put the running line back, or show a finished
-    /// notice that was waiting out a confirmation. A finished notice is shown
-    /// once, then lingers like a reply.
+    /// After a reply's linger: show a stored finished sentence once, then the
+    /// running line if a newer stage is already waiting. Otherwise put the
+    /// running line back.
     private func restoreAfterMessage() {
         dismiss = nil
         if let finished = unseenFinished {
             unseenFinished = nil
-            running = nil
             state = .crew
             text = finished.message
             confirmID = ""
-            scheduleLinger { [weak self] in self?.blank() }
+            scheduleLinger { [weak self] in self?.afterFinishedLinger() }
             return
         }
+        showRunningOrBlank()
+    }
+
+    private func afterFinishedLinger() {
+        dismiss = nil
+        showRunningOrBlank()
+    }
+
+    private func showRunningOrBlank() {
         if let running {
             state = .crew
             text = running.message
