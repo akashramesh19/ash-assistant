@@ -101,7 +101,11 @@ final class BridgeClient {
         case "reply":
             model.apply(.reply, text: object["text"] as? String ?? "")
         case "crew":
-            model.apply(.crew, text: object["message"] as? String ?? "")
+            model.apply(
+                .crew,
+                text: object["message"] as? String ?? "",
+                status: object["status"] as? String ?? ""
+            )
         case "confirm":
             guard let id = object["id"] as? String,
                   let question = object["question"] as? String,

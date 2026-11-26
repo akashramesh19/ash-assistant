@@ -59,6 +59,14 @@ Confirmation rules (execution layer, enforced in Python, not in the UI):
 - The confirmation text is shown exactly as the tool wrote it, with no
   persona jokes (see `persona.md`).
 
+The pill, separate from those rules:
+- A crew event during a confirmation is stored. The question, the id, and the
+  buttons stay until the answer. The stored line is shown after that turn's
+  reply has lingered.
+- A `running` line stays until the next crew event. `idle` leaves it up, and
+  when a reply's linger ends the current running line comes back. `done`,
+  `done-unreviewed`, and `failed` linger like a reply and are shown once.
+
 ## Window
 
 - A borderless, non-activating `NSPanel` above the menu bar, on all Spaces and
