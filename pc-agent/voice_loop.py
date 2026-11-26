@@ -23,6 +23,7 @@ from crew.notify import set_notifier  # noqa: E402
 from handler import create_responder  # noqa: E402
 from providers.base import ProviderConfigError, ProviderError  # noqa: E402
 from listener.wake_word import listen  # noqa: E402
+from ui_bridge import UIBridge  # noqa: E402
 from spoken_confirm import LISTEN_SECONDS as CONFIRM_SECONDS, make_spoken_confirmer  # noqa: E402
 from tools import move_file  # noqa: E402
 import stt.whisper_stt as whisper_stt  # noqa: E402
@@ -36,34 +37,45 @@ def handle_turn(
     transcribe=lambda: whisper_stt.listen_and_transcribe(RECORD_SECONDS),
     say=speak,
     log=print,
+    emit=lambda event: None,
 ) -> None:
     """One wake-word-to-reply turn. The audio functions are parameters so the
-    transcript -> handler path can be tested without a mic or speakers."""
+    transcript -> handler path can be tested without a mic or speakers. emit
+    sends state events to the notch app (a no-op when there is none)."""
+    state = lambda name: emit({"type": "state", "state": name})  # noqa: E731
     log("[wake] Hey Ash detected. Speak now...")
-    t0 = time.perf_counter()
-    whisper_stt.last_capture = None
-    transcript = transcribe()
-    t_heard = time.perf_counter()
-    info = whisper_stt.last_capture
-    detail = f" {whisper_stt.format_capture(info)}" if info else ""
-    log(f"[whisper] heard: {transcript!r}{detail} (listen + transcribe {t_heard - t0:.1f}s)")
-    if not transcript:
-        log("[skip] empty transcript, nothing to send")
-        return
-
-    def log_tool(name, tool_input, result):
-        log(f"[tool] {name}({tool_input}) -> {result}")
-
+    state("listening")
     try:
-        reply = respond(transcript, on_tool_call=log_tool)
-    except ProviderError as error:
-        log(f"[error] model call failed: {error}")
-        return
-    t_reply = time.perf_counter()
-    log(f"[reply] {reply!r} (model {t_reply - t_heard:.1f}s)")
-    if reply:
-        say(reply)
-        log(f"[timing] speak {time.perf_counter() - t_reply:.1f}s; end of speech to reply ready {t_reply - t_heard:.1f}s")
+        t0 = time.perf_counter()
+        whisper_stt.last_capture = None
+        transcript = transcribe()
+        t_heard = time.perf_counter()
+        info = whisper_stt.last_capture
+        detail = f" {whisper_stt.format_capture(info)}" if info else ""
+        log(f"[whisper] heard: {transcript!r}{detail} (listen + transcribe {t_heard - t0:.1f}s)")
+        if not transcript:
+            log("[skip] empty transcript, nothing to send")
+            return
+        emit({"type": "heard", "text": transcript})
+
+        def log_tool(name, tool_input, result):
+            log(f"[tool] {name}({tool_input}) -> {result}")
+
+        state("thinking")
+        try:
+            reply = respond(transcript, on_tool_call=log_tool)
+        except ProviderError as error:
+            log(f"[error] model call failed: {error}")
+            emit({"type": "error", "message": str(error)})
+            return
+        t_reply = time.perf_counter()
+        log(f"[reply] {reply!r} (model {t_reply - t_heard:.1f}s)")
+        if reply:
+            emit({"type": "reply", "text": reply})
+            say(reply)
+            log(f"[timing] speak {time.perf_counter() - t_reply:.1f}s; end of speech to reply ready {t_reply - t_heard:.1f}s")
+    finally:
+        state("idle")
 
 
 def make_announcer(say, audio_lock, log=print):
@@ -92,15 +104,25 @@ def main() -> None:
     )
     audio_lock = threading.Lock()  # one thing at a time on the speakers and mic
 
+    bridge = UIBridge()
+    try:
+        bridge.start()
+    except RuntimeError as error:
+        print(f"error: {error}")
+        return
+    bridge.emit({"type": "state", "state": "idle"})
+
     def locked_turn():
         with audio_lock:
-            handle_turn(respond)
+            handle_turn(respond, emit=bridge.emit)
 
     set_notifier(make_announcer(speak, audio_lock))
     try:
         listen(on_wake_word=locked_turn)
     except KeyboardInterrupt:
         print()
+    finally:
+        bridge.stop()
 
 
 if __name__ == "__main__":
