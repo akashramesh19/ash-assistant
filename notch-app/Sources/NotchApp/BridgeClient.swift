@@ -103,9 +103,10 @@ final class BridgeClient {
         case "crew":
             model.apply(.crew, text: object["message"] as? String ?? "")
         case "confirm":
-            if let id = object["id"] as? String {
-                model.apply(.confirm, text: object["question"] as? String ?? "", confirmID: id)
-            }
+            guard let id = object["id"] as? String,
+                  let question = object["question"] as? String,
+                  !question.isEmpty else { return }
+            model.apply(.confirm, text: question, confirmID: id)
         case "confirm_closed":
             model.apply(.idle, immediate: true)
         case "error":

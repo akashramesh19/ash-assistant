@@ -4,7 +4,7 @@ Run from the repo root: .venv/bin/python pc-agent/voice_loop.py
 Needs ANTHROPIC_API_KEY in the environment. The typed loop
 (orchestrator/src/handler.py) is unaffected by this.
 
-move_file confirmations are spoken and answered by voice (pc-agent/spoken_confirm.py).
+move_file confirmations are spoken, or clicked in the notch (pc-agent/spoken_confirm.py).
 
 Every turn prints what Whisper heard, any tool called (with its result), and
 the reply, so failures show which stage broke.
@@ -107,11 +107,6 @@ def main() -> None:
     except ProviderConfigError as error:
         print(f"error: {error}")
         return
-    # move_file asks "go ahead?" out loud and listens for the answer, instead of
-    # waiting for a typed y/N. Anything but a clear yes is a no.
-    move_file.set_confirmer(
-        make_spoken_confirmer(say=speak, listen=listen_for_confirmation)
-    )
     audio_lock = threading.Lock()  # one thing at a time on the speakers and mic
 
     bridge = UIBridge()
@@ -120,6 +115,14 @@ def main() -> None:
     except RuntimeError as error:
         print(f"error: {error}")
         return
+    # move_file asks out loud and listens. A click counts only for the id that
+    # is still open. on_answer runs on the bridge thread while a turn holds
+    # audio_lock, so it only stores the choice — it must not speak or listen.
+    confirmer = make_spoken_confirmer(
+        say=speak, listen=listen_for_confirmation, emit=bridge.emit
+    )
+    bridge.on_answer = confirmer.on_answer
+    move_file.set_confirmer(confirmer)
     bridge.emit({"type": "state", "state": "idle"})
 
     def locked_turn():

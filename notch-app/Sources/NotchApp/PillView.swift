@@ -1,8 +1,14 @@
 import SwiftUI
 
+struct PillFrameKey: PreferenceKey {
+    static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) { value = nextValue() }
+}
+
 struct PillView: View {
     @ObservedObject var model: PillModel
     let geometry: PillGeometry
+    var onPillFrame: (CGRect) -> Void = { _ in }
 
     var body: some View {
         let size = geometry.pillSize(for: model.state)
@@ -24,11 +30,19 @@ struct PillView: View {
                     confirmBody
                 }
             }
-            .frame(width: size.width, height: size.height, alignment: .top)
+            .frame(width: size.width, height: model.state == .confirm ? nil : size.height, alignment: .top)
+            .fixedSize(horizontal: false, vertical: model.state == .confirm)
             .background(PillShape(hasNotch: geometry.hasNotch).fill(Color.black))
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: PillFrameKey.self, value: proxy.frame(in: .named("panel")))
+                }
+            )
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: model.state)
         }
+        .coordinateSpace(name: "panel")
         .frame(width: PillGeometry.panelSize.width, height: PillGeometry.panelSize.height, alignment: .top)
+        .onPreferenceChange(PillFrameKey.self, perform: onPillFrame)
     }
 
     /// The row level with the notch: indicators sit left and right of it.
@@ -68,7 +82,6 @@ struct PillView: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
-                .lineLimit(3)
                 .padding(.horizontal, 16)
             HStack(spacing: 12) {
                 Button("No") { model.onAnswer(model.confirmID, "no") }
@@ -78,7 +91,8 @@ struct PillView: View {
             }
         }
         .padding(.top, 6)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 }
 

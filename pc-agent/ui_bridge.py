@@ -11,6 +11,7 @@ counts is decided by the confirmation logic in Python.
 import json
 import os
 import socket
+import struct
 import threading
 from pathlib import Path
 from typing import Callable
@@ -67,7 +68,8 @@ class UIBridge:
         self.path.unlink(missing_ok=True)
 
     def emit(self, event: dict) -> None:
-        """Send an event to the app if one is connected. Never raises."""
+        """Send an event to the app if one is connected. Never raises.
+        A send that stalls drops the client instead of holding the caller."""
         line = (json.dumps(event, ensure_ascii=False) + "\n").encode()
         with self._lock:
             if event.get("type") == "state":
@@ -96,7 +98,19 @@ class UIBridge:
                 client, _ = self._server.accept()
             except OSError:
                 return
-            client.settimeout(None)
+            client.settimeout(None)  # recv on this socket must stay blocking
+            # SO_SNDTIMEO bounds send only. settimeout() would also time out recv.
+            # One whole second: macOS (32-bit usec plus padding) and Linux (long usec) match.
+            # macOS rejects the option if the peer has already hung up; a send on
+            # that socket fails immediately and the client is dropped below.
+            try:
+                client.setsockopt(
+                    socket.SOL_SOCKET,
+                    socket.SO_SNDTIMEO,
+                    struct.pack("ll", int(SEND_TIMEOUT_SECONDS), 0),
+                )
+            except OSError:
+                pass
             with self._lock:
                 self._drop_client()  # one app at a time: the newest wins
                 self._client = client

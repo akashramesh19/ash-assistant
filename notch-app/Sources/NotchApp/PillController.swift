@@ -28,7 +28,11 @@ final class PillController {
         for screen in NSScreen.screens {
             let geometry = PillGeometry(screen: screen)
             guard geometry.hasNotch || screen == mainScreen else { continue }
-            let host = NSHostingView(rootView: PillView(model: model, geometry: geometry))
+            let host = PillHostingView(rootView: PillView(model: model, geometry: geometry))
+            host.hasNotch = geometry.hasNotch
+            host.rootView = PillView(model: model, geometry: geometry) { [frames = host.frames] frame in
+                frames.frame = frame
+            }
             let panel = PillPanel(frame: geometry.panelFrame(on: screen), content: host)
             panel.ignoresMouseEvents = (model.state != .confirm)
             panel.orderFrontRegardless()

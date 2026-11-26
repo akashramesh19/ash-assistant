@@ -109,6 +109,18 @@ def test_a_new_app_replaces_the_old_one(bridge):
     assert first.recv(10) == b""  # closed by the bridge
 
 
+def test_a_stalled_reader_is_dropped_instead_of_blocking_emit(bridge):
+    client = connect(bridge)
+    assert wait_for(lambda: bridge._client is not None)
+    bridge._client.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
+    client.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
+    started = time.time()
+    bridge.emit({"type": "reply", "text": "x" * 8000})
+    assert time.time() - started < 5
+    assert bridge._client is None
+    bridge.emit({"type": "state", "state": "idle"})  # a dead UI does not raise, and is not a yes
+
+
 def test_a_disconnected_app_does_not_break_emit(bridge):
     client = connect(bridge)
     assert wait_for(lambda: bridge._client is not None)
@@ -116,6 +128,22 @@ def test_a_disconnected_app_does_not_break_emit(bridge):
     for _ in range(5):
         bridge.emit({"type": "state", "state": "idle"})
         time.sleep(0.02)
+
+
+def test_a_probe_that_hangs_up_does_not_stop_accepting(bridge):
+    with pytest.raises(RuntimeError, match="already running"):
+        UIBridge(bridge.path, log=lambda line: None).start()
+    client = connect(bridge)
+    deadline = time.time() + 2
+    while time.time() < deadline:
+        bridge.emit({"type": "state", "state": "idle"})
+        client.settimeout(0.1)
+        try:
+            assert read_line(client)["state"] == "idle"
+            return
+        except (TimeoutError, socket.timeout):
+            continue
+    raise AssertionError("accept loop died after the probe hung up")
 
 
 def test_a_second_agent_refuses_to_start_but_a_stale_file_is_replaced(bridge, sock_dir):

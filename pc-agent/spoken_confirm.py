@@ -1,11 +1,17 @@
 """Spoken yes/no confirmation for tools that need the user's go-ahead (move_file).
 
 Fails closed: only an unmistakable yes counts as yes. Silence, noise, a Whisper
-hallucination ("Thank you."), a long or mixed answer, a mic error: all are no.
-The audio functions are parameters so this is testable without a mic or speakers.
+hallucination ("Thank you."), a long or mixed answer, a mic error, a dropped
+UI: all are no. A click counts only when its id is the question still open.
+The click callback stores that answer and nothing else — it must not take the
+audio lock or call say/listen, because it runs on the bridge thread while the
+turn holds the mic. The audio functions are parameters so this is testable
+without a mic or speakers.
 """
 
 import re
+import threading
+import uuid
 from typing import Callable
 
 YES_WORDS = {"yes", "yeah", "yep", "yup", "sure", "confirm", "confirmed", "okay", "ok"}
@@ -45,24 +51,80 @@ def make_spoken_confirmer(
     listen: Callable[[], str],
     log: Callable[[str], None] = print,
     max_attempts: int = MAX_ATTEMPTS,
+    emit: Callable[[dict], None] = lambda event: None,
 ) -> Callable[[str], bool]:
-    """Returns confirm(question) -> bool, for move_file.set_confirmer()."""
+    """Returns confirm(question) -> bool, for move_file.set_confirmer().
+
+    confirm.on_answer(id, "yes"|"no") is the only way in for a click. Each
+    call to confirm uses a new id, so a yes for the move cannot answer the
+    overwrite prompt that follows it.
+    """
+    pending = {"id": None, "click": None}
+    lock = threading.Lock()
+
+    def on_answer(confirm_id: str, answer: str) -> None:
+        # Store only. The caller is the bridge thread and must not touch audio.
+        if confirm_id == "debug" or answer not in ("yes", "no"):
+            return
+        with lock:
+            if pending["id"] is None or confirm_id != pending["id"] or pending["click"] is not None:
+                return
+            pending["click"] = answer == "yes"
+
+    def take_click() -> bool | None:
+        with lock:
+            click = pending["click"]
+            pending["click"] = None
+            return click
 
     def confirm(question: str) -> bool:
+        confirm_id = uuid.uuid4().hex
+        settled = "no"
         try:
+            with lock:
+                pending["id"] = confirm_id
+                pending["click"] = None
+            # The screen gets the tool's question, quotes and path included.
+            # speakable() is only what is said aloud.
+            emit({"type": "confirm", "id": confirm_id, "question": question})
             say(speakable(question))
+            click = take_click()
+            if click is not None:
+                log(f"[confirm] click {'yes' if click else 'no'}")
+                settled = "yes" if click else "no"
+                return click
             for attempt in range(1, max_attempts + 1):
                 heard = listen()
+                # A click stored during the listen arrived before this parse.
+                click = take_click()
+                if click is not None:
+                    log(f"[confirm] click {'yes' if click else 'no'}")
+                    settled = "yes" if click else "no"
+                    return click
                 answer = parse_answer(heard)
                 log(f"[confirm] heard {heard!r} -> {'yes' if answer else 'no' if answer is False else 'unclear'}")
                 if answer is not None:
+                    settled = "yes" if answer else "no"
                     return answer
                 if attempt < max_attempts:
                     say("Sorry, was that a yes or a no?")
+                    click = take_click()
+                    if click is not None:
+                        log(f"[confirm] click {'yes' if click else 'no'}")
+                        settled = "yes" if click else "no"
+                        return click
             say("I didn't catch a clear yes, so I'll leave it.")
+            settled = "timeout"
             return False
         except Exception as error:  # a mic or speaker fault must never count as yes
             log(f"[confirm] error, treating as no: {type(error).__name__}: {error}")
+            settled = "no"
             return False
+        finally:
+            with lock:
+                pending["id"] = None
+                pending["click"] = None
+            emit({"type": "confirm_closed", "id": confirm_id, "answer": settled})
 
+    confirm.on_answer = on_answer
     return confirm

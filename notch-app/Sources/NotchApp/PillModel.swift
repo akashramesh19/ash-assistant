@@ -16,7 +16,6 @@ final class PillModel: ObservableObject {
 
     private var dismiss: DispatchWorkItem?
     static let lingerAfterIdle: TimeInterval = 5     // a reply stays this long after Ash stops talking
-    static let longestReply: TimeInterval = 25       // safety net if "idle" never arrives
 
     /// Show a state. A reply or crew notice is not wiped the moment Ash goes
     /// idle: it lingers briefly so it can be read. `immediate` skips that.
@@ -31,9 +30,6 @@ final class PillModel: ObservableObject {
             self.state = newState
             self.text = text
             self.confirmID = confirmID
-            if newState == .reply || newState == .crew {
-                self.schedule(after: Self.longestReply)
-            }
         }
     }
 

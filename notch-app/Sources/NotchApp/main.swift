@@ -1,14 +1,14 @@
 import AppKit
 
-// docs/notch-design.md steps 1-2: the pill window, driven by the Python agent
-// over the socket (pc-agent/ui_bridge.py), or by typed commands for debugging.
+// docs/notch-design.md: the pill window, driven by the Python agent over the
+// socket (pc-agent/ui_bridge.py). Typed lines below are for debugging.
 //
 //   swift run NotchApp
 //   then type:  idle | listening | thinking | speaking | reply <text>
 //               | confirm <question> | crew <message> | click yes|no | snapshot [dir] | live [dir] | quit
 //
-// A Yes/No click prints "answer <id> yes|no" to stdout. Later steps replace the
-// typed commands with the socket to the Python agent.
+// A Yes/No click prints "answer <id> yes|no" and sends it on the socket.
+// The agent counts it only when that id is the confirmation still open.
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)   // no Dock icon, no app switcher entry
@@ -41,7 +41,8 @@ func handle(_ line: String) {
     case "live":
         DispatchQueue.main.async { Snapshot.renderLive(controller.panels, into: rest.isEmpty ? "live" : rest) }
     case "click":   // debug: press the Yes/No button for the open confirmation
-        DispatchQueue.main.async { model.onAnswer(model.confirmID, rest == "no" ? "no" : "yes") }
+        guard rest == "yes" || rest == "no" else { return }
+        DispatchQueue.main.async { model.onAnswer(model.confirmID, rest) }
     case "quit":
         DispatchQueue.main.async { NSApp.terminate(nil) }
     default:
