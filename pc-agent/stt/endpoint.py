@@ -28,7 +28,7 @@ class Endpointer:
         self.no_speech_chunks = round(no_speech / chunk_seconds)
         self.max_chunks = round(max_seconds / chunk_seconds)
         self.max_seconds = max_seconds
-        self.floor = None  # quietest loudness seen: the room's noise level
+        self.floor = None  # quietest room-level loudness; louder than the cap is speech, not the room
         self.chunks = 0
         self.loud_run = 0
         self.quiet_run = 0
@@ -43,7 +43,9 @@ class Endpointer:
     def feed(self, loudness: float) -> bool:
         """Give it the next chunk's loudness. True means stop recording."""
         self.chunks += 1
-        self.floor = loudness if self.floor is None else min(self.floor, loudness)
+        # A loud chunk is speech. Storing it would pin the bar at 1200 and trim that speech off.
+        if loudness <= MAX_NOISE_FLOOR:
+            self.floor = loudness if self.floor is None else min(self.floor, loudness)
         if loudness > self.threshold:
             self.loud_run += 1
             self.quiet_run = 0

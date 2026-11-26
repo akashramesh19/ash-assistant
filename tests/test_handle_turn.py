@@ -31,6 +31,7 @@ def test_transcript_goes_to_respond_and_reply_is_spoken():
     assert any("[whisper] heard: \"what's the weather in Melbourne\"" in line for line in logs)
     assert any("[tool] get_weather({'location': 'Melbourne'})" in line for line in logs)
     assert any("[reply]" in line for line in logs)
+    assert any(line.startswith("[timing] speak ") and "model interval " in line for line in logs)
 
 
 def test_listen_details_are_logged_with_the_transcript():
@@ -67,3 +68,23 @@ def test_api_error_is_logged_not_raised_and_nothing_is_spoken():
     logs, spoken = run_turn(respond)
     assert spoken == []
     assert any("[error]" in line for line in logs)
+
+
+def test_confirmation_cap_reaches_record_and_a_question_stays_at_twenty_seconds(monkeypatch, tmp_path):
+    import stt.whisper_stt as whisper_stt
+    from voice_loop import CONFIRM_SECONDS, RECORD_SECONDS, listen_for_confirmation, listen_for_question
+
+    wav = tmp_path / "take.wav"
+    wav.write_bytes(b"")
+    seen = []
+
+    def fake_record(max_seconds=20.0, no_speech_seconds=5.0):
+        seen.append((max_seconds, no_speech_seconds))
+        return wav, {"audio_s": 0.3, "stop": "pause", "model": "base", "dropped": None}
+
+    monkeypatch.setattr(whisper_stt, "record", fake_record)
+    monkeypatch.setattr(whisper_stt, "transcribe", lambda path: "yes")
+
+    assert listen_for_confirmation() == "yes"
+    assert listen_for_question() == "yes"
+    assert seen == [(CONFIRM_SECONDS, CONFIRM_SECONDS), (20.0, RECORD_SECONDS)]
