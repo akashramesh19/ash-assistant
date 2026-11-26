@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from crew import notify as crew_notify
-from crew.notify import completion_message, notify, set_notifier
+from crew.notify import completion_message, notify, set_notifier, set_progress
 from providers.base import Provider, TurnResult
 from tools import crew_status, run_crew
 from voice_loop import make_announcer
@@ -16,8 +16,11 @@ from voice_loop import make_announcer
 def clean(tmp_path, monkeypatch):
     monkeypatch.setenv("ASH_CREW_ROOT", str(tmp_path))
     monkeypatch.setattr(run_crew, "_active", None)
+    set_notifier(None)
+    set_progress(None)
     yield
     set_notifier(None)
+    set_progress(None)
 
 
 def test_messages_come_from_the_outcome():
@@ -80,6 +83,70 @@ def test_a_crashed_run_notifies_failure(monkeypatch):
     run_crew.run(task="Write X")
     run_crew._active[1].join(5)
     assert got == ["The draft failed at the start stage, Sir."]
+
+
+def test_a_finished_run_emits_each_stage_and_then_the_ready_notice(monkeypatch):
+    """Madhi's brief says no research, so Oli is skipped. The pill hears the
+    stages that run, then the same ready line the speaker gets."""
+    monkeypatch.setattr(run_crew, "available_providers", lambda: ({"claude": Quick(), "matilda": Quick()}, []))
+    events, said = [], []
+    set_progress(events.append)
+    set_notifier(lambda message, detail: said.append(message))
+    run_crew.run(task="Write X")
+    run_crew._active[1].join(5)
+    running = [event for event in events if event["status"] == "running"]
+    assert [event["stage"] for event in running] == ["madhi", "thooya", "kural"]
+    assert [event["message"] for event in running] == [
+        "Madhi is working.", "Thooya is working.", "Kural is working.",
+    ]
+    assert all(event["type"] == "crew" and event["run_id"] for event in events)
+    assert events[-1] == {
+        "type": "crew",
+        "run_id": events[0]["run_id"],
+        "status": "done",
+        "stage": "",
+        "message": "Your draft is ready, Sir.",
+    }
+    assert said == ["Your draft is ready, Sir."]
+
+
+def test_a_crashed_run_emits_the_failure_and_not_a_ready_notice(monkeypatch):
+    def boom():
+        raise RuntimeError("no providers")
+
+    monkeypatch.setattr(run_crew, "available_providers", boom)
+    events = []
+    set_progress(events.append)
+    run_crew.run(task="Write X")
+    run_crew._active[1].join(5)
+    assert len(events) == 1
+    assert events[0]["status"] == "failed"
+    assert events[0]["message"] == "The draft failed at the start stage, Sir."
+    assert "ready" not in events[0]["message"]
+
+
+def test_no_progress_callback_still_speaks(monkeypatch):
+    monkeypatch.setattr(run_crew, "available_providers", lambda: ({"claude": Quick(), "matilda": Quick()}, []))
+    said = []
+    set_progress(None)
+    set_notifier(lambda message, detail: said.append(message))
+    run_crew.run(task="Write X")
+    run_crew._active[1].join(5)
+    assert said == ["Your draft is ready, Sir."]
+
+
+def test_a_broken_progress_callback_still_speaks(monkeypatch, capsys):
+    def broken(event):
+        raise RuntimeError("pill off")
+
+    monkeypatch.setattr(run_crew, "available_providers", lambda: ({"claude": Quick(), "matilda": Quick()}, []))
+    said = []
+    set_progress(broken)
+    set_notifier(lambda message, detail: said.append(message))
+    run_crew.run(task="Write X")
+    run_crew._active[1].join(5)
+    assert said == ["Your draft is ready, Sir."]
+    assert "progress failed" in capsys.readouterr().out
 
 
 def test_announcer_speaks_and_logs_the_detail():
