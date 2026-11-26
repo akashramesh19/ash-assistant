@@ -9,7 +9,7 @@ provider instances, separate from the conversation's.
 import json
 import threading
 
-from crew.notify import notify
+from crew.notify import notify, report, stage_line
 from crew.runner import prepare_run, run_document_crew, _write_json
 from providers import available_providers
 
@@ -37,9 +37,12 @@ _active = None  # (run id, thread) of the run in progress
 
 
 def _worker(task: str, run_dir) -> None:
+    def on_progress(role: str) -> None:
+        report(run_dir.name, "running", role, stage_line(role))
+
     try:
         providers, skipped = available_providers()
-        meta = run_document_crew(task, providers, run_dir)
+        meta = run_document_crew(task, providers, run_dir, on_progress=on_progress)
     except Exception as error:  # the thread must never die silently
         meta = {**json.loads((run_dir / "run.json").read_text()), "status": "failed", "error": f"{type(error).__name__}: {error}"}
         _write_json(run_dir / "run.json", meta)

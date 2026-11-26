@@ -19,7 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "orchestrator" / "src"))
 sys.path.insert(0, str(REPO_ROOT / "pc-agent"))
 
-from crew.notify import set_notifier  # noqa: E402
+from crew.notify import set_notifier, set_progress  # noqa: E402
 from handler import create_responder  # noqa: E402
 from providers.base import ProviderConfigError, ProviderError  # noqa: E402
 from listener.wake_word import listen  # noqa: E402
@@ -129,6 +129,7 @@ def main() -> None:
         with audio_lock:
             handle_turn(respond, emit=bridge.emit)
 
+    set_progress(bridge.emit)  # stage lines and the finished notice, shown before they are spoken
     set_notifier(make_announcer(speak, audio_lock))
     try:
         listen(on_wake_word=locked_turn)
