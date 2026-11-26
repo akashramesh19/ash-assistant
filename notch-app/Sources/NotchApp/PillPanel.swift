@@ -19,7 +19,7 @@ final class PillPanel: NSPanel {
         hidesOnDeactivate = false
         level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 3)
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        ignoresMouseEvents = true   // clicks pass through unless a confirmation is open
+        ignoresMouseEvents = true   // the whole window lets clicks through until a confirmation opens
         contentView = content
     }
 
@@ -37,8 +37,10 @@ final class PillFrameBox {
     var frame = CGRect.zero
 }
 
-/// Claims a click only when it lands on the pill shape. The rest of the panel
-/// is clear and sits over the menu bar, so those clicks pass through.
+/// Claims a click only when it lands on the pill shape. Returning nil does
+/// not pass the click through: AppKit has already delivered it to this panel.
+/// A confirmation avoids that by shrinking the window to the pill. Every
+/// other state ignores mouse events, which is what lets the menu bar have them.
 final class PillHostingView: NSHostingView<PillView> {
     let frames = PillFrameBox()
     var hasNotch = false

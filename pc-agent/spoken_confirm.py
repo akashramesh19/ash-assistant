@@ -95,13 +95,20 @@ def make_spoken_confirmer(
                 return click
             for attempt in range(1, max_attempts + 1):
                 heard = listen()
-                # A click stored during the listen arrived before this parse.
+                # Both are in hand now, so this is not "whichever came first".
+                # A clear disagreement is a no. Empty or unclear speech leaves
+                # the click in force. A click taken before this listen already
+                # returned above, because there was no transcript yet.
                 click = take_click()
+                answer = parse_answer(heard)
+                if click is not None and answer is not None and click != answer:
+                    log(f"[confirm] click {'yes' if click else 'no'} disagrees with {heard!r}, treating as no")
+                    settled = "no"
+                    return False
                 if click is not None:
                     log(f"[confirm] click {'yes' if click else 'no'}")
                     settled = "yes" if click else "no"
                     return click
-                answer = parse_answer(heard)
                 log(f"[confirm] heard {heard!r} -> {'yes' if answer else 'no' if answer is False else 'unclear'}")
                 if answer is not None:
                     settled = "yes" if answer else "no"

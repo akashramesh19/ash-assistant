@@ -246,5 +246,5 @@ The Mac front-end is a small SwiftUI/AppKit app at the notch, talking to the
 existing Python voice agent over a local socket. Python keeps the wake word,
 Whisper, Piper and the orchestrator, so nothing is rewritten and the Raspberry
 Pi redeploy stays pure Python. Confirmation answers are validated in Python
-(matching id, first answer wins, silence is no), never trusted to the UI. Full
-design in `docs/notch-design.md`.
+(the id has to match, a click and a clear transcript that disagree are a no,
+silence is a no), never trusted to the UI. Full design in `docs/notch-design.md`.

@@ -1,8 +1,10 @@
 """Local socket the notch app connects to (docs/notch-design.md).
 
 Newline-delimited JSON over a Unix domain socket. Python sends events (state,
-heard, reply, ...); the app sends answers back. The socket is owner-only (the
-folder 0700, the file 0600) so no other local user can listen in or answer.
+heard, reply, ...); the app sends answers back. The socket file is created
+0600. A directory this call creates is 0700. An existing directory is left
+alone, and a world-writable one is refused, so a socket in /tmp cannot
+change /tmp.
 
 Nothing here is trusted for safety: a click is only a request, and whether it
 counts is decided by the confirmation logic in Python.
@@ -11,6 +13,7 @@ counts is decided by the confirmation logic in Python.
 import json
 import os
 import socket
+import stat
 import struct
 import threading
 from pathlib import Path
@@ -32,8 +35,7 @@ class UIBridge:
         self._stopped = False
 
     def start(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        os.chmod(self.path.parent, 0o700)
+        self._prepare_parent()
         if self.path.exists():
             probe = socket.socket(socket.AF_UNIX)
             try:
@@ -54,6 +56,28 @@ class UIBridge:
         server.listen(1)
         self._server = server
         threading.Thread(target=self._accept_loop, daemon=True, name="ui-bridge-accept").start()
+
+    def _prepare_parent(self) -> None:
+        """Lock down a directory this call creates. Never chmod one that
+        already existed. Refuse a world-writable parent instead."""
+        parent = self.path.parent
+        if parent.exists():
+            if stat.S_IMODE(parent.stat().st_mode) & stat.S_IWOTH:
+                raise RuntimeError(
+                    f"refusing to use a world-writable directory for the socket ({parent}). "
+                    "Point ASH_UI_SOCKET at a private directory."
+                )
+            return
+        created: list[Path] = []
+        cursor = parent
+        while not cursor.exists():
+            created.append(cursor)
+            if cursor.parent == cursor:
+                break
+            cursor = cursor.parent
+        parent.mkdir(parents=True, exist_ok=True)
+        for directory in created:
+            os.chmod(directory, 0o700)
 
     def stop(self) -> None:
         self._stopped = True

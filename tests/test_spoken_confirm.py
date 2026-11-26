@@ -154,3 +154,26 @@ def test_a_mismatched_click_stays_pending_and_silence_is_no():
     assert confirms[1]["question"] == overwrite
     assert closed[0]["answer"] == "no"
     assert closed[1]["answer"] == "timeout"
+
+
+@pytest.mark.parametrize(
+    "click,heard,expected",
+    [("yes", "no", False), ("no", "yes", False), ("yes", "", True)],
+)
+def test_a_click_during_listen_yields_to_a_clear_disagreement(click, heard, expected):
+    """After listen(), both answers are in hand. A clear disagreement is no.
+    An empty transcript leaves the click in force."""
+    events = []
+
+    def listen():
+        confirm.on_answer(events[0]["id"], click)
+        return heard
+
+    confirm = make_spoken_confirmer(lambda text: None, listen, lambda line: None, emit=events.append)
+    assert confirm("Go ahead?") is expected
+    closed = [event for event in events if event["type"] == "confirm_closed"]
+    assert closed == [{
+        "type": "confirm_closed",
+        "id": events[0]["id"],
+        "answer": "yes" if expected else "no",
+    }]

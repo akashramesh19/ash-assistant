@@ -41,7 +41,14 @@ struct PillView: View {
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: model.state)
         }
         .coordinateSpace(name: "panel")
-        .frame(width: PillGeometry.panelSize.width, height: PillGeometry.panelSize.height, alignment: .top)
+        // While confirming, the root is the pill's width and sits at the top
+        // of whatever height the window currently has. The controller then
+        // shrinks the window to the measured pill, so the two match.
+        .frame(
+            width: model.state == .confirm ? size.width : PillGeometry.panelSize.width,
+            height: model.state == .confirm ? nil : PillGeometry.panelSize.height,
+            alignment: .top
+        )
         .onPreferenceChange(PillFrameKey.self, perform: onPillFrame)
     }
 

@@ -21,13 +21,35 @@ struct PillGeometry {
         }
     }
 
-    /// The panel's frame: a fixed transparent area at the top centre of the
-    /// screen. The pill is drawn inside it, so resizing never moves a window.
+    /// The panel's frame at every state except confirmation: a fixed
+    /// transparent area at the top centre. The pill is drawn inside it.
+    /// Mouse events are ignored, so the clear part does not take clicks.
     func panelFrame(on screen: NSScreen) -> NSRect {
         let size = Self.panelSize
         let x = screen.frame.midX - size.width / 2
         let top = hasNotch ? screen.frame.maxY : screen.visibleFrame.maxY - 6
         return NSRect(x: x, y: top - size.height, width: size.width, height: size.height)
+    }
+
+    /// Provisional window while a confirmation is opening. Same top edge and
+    /// height as panelFrame, only as wide as the confirm pill, so the question
+    /// can lay out. The controller then shrinks the height to the measured pill.
+    func confirmFrame(on screen: NSScreen) -> NSRect {
+        let full = panelFrame(on: screen)
+        let width = pillSize(for: .confirm).width
+        return NSRect(x: full.midX - width / 2, y: full.minY, width: width, height: full.height)
+    }
+
+    /// A window the size of the pill, top edge kept where panelFrame has it,
+    /// so the clear strip beside and below the pill is not part of the window.
+    func frame(fitting pill: CGSize, on screen: NSScreen) -> NSRect {
+        let full = panelFrame(on: screen)
+        return NSRect(
+            x: full.midX - pill.width / 2,
+            y: full.maxY - pill.height,
+            width: pill.width,
+            height: pill.height
+        )
     }
 
     /// Size of the visible pill for a state.

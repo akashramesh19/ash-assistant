@@ -60,6 +60,29 @@ def test_socket_and_folder_are_owner_only(bridge):
     assert stat.S_IMODE(os.stat(bridge.path.parent).st_mode) == 0o700
 
 
+def test_a_world_writable_parent_is_refused_and_left_unchanged(sock_dir):
+    parent = sock_dir / "shared"
+    parent.mkdir()
+    os.chmod(parent, 0o777)
+    with pytest.raises(RuntimeError, match="world-writable"):
+        UIBridge(parent / "ash.sock", log=lambda line: None).start()
+    assert stat.S_IMODE(parent.stat().st_mode) == 0o777
+    assert not (parent / "ash.sock").exists()
+
+
+def test_an_existing_private_parent_keeps_its_mode(sock_dir):
+    parent = sock_dir / "private"
+    parent.mkdir()
+    os.chmod(parent, 0o755)
+    bridge = UIBridge(parent / "a.sock", log=lambda line: None)
+    bridge.start()
+    try:
+        assert stat.S_IMODE(parent.stat().st_mode) == 0o755
+        assert stat.S_IMODE(bridge.path.stat().st_mode) == 0o600
+    finally:
+        bridge.stop()
+
+
 def test_events_reach_a_connected_app_as_json_lines(bridge):
     client = connect(bridge)
     assert wait_for(lambda: bridge._client is not None)

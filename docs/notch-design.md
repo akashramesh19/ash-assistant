@@ -51,7 +51,10 @@ App to Python:
 Confirmation rules (execution layer, enforced in Python, not in the UI):
 - An answer counts only if its `id` matches the confirmation currently
   pending. Stale, repeated or unknown ids are ignored.
-- The first answer wins, spoken or clicked. The later one is dropped.
+- The first clear answer wins. A click while the question is spoken, before
+  any transcript, counts. After a listen, if the click and the transcript are
+  both clear and they disagree, the answer is no. An empty or unclear
+  transcript leaves the click in force. A later click on the same id is dropped.
 - No answer in time is a no. A dead or disconnected UI never counts as yes.
 - The confirmation text is shown exactly as the tool wrote it, with no
   persona jokes (see `persona.md`).
@@ -63,7 +66,9 @@ Confirmation rules (execution layer, enforced in Python, not in the UI):
 - Notch geometry from `NSScreen.safeAreaInsets` and the auxiliary top areas
   (notch width = screen width minus both). The pill is black and rounded, grows
   down from the notch, and expands for a reply or a confirmation.
-- Idle is nearly invisible. Clicks pass through it unless a confirmation is open.
+- Idle is nearly invisible. The panel ignores mouse events unless a
+  confirmation is open. While one is open the panel shrinks to the pill, top
+  edge fixed, so a click beside it reaches the menu bar.
 - A menu bar item offers Restart agent, Show log and Quit.
 
 ## Build order
