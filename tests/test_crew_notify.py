@@ -114,3 +114,4 @@ def test_persona_tells_ash_how_to_handle_a_crew_run():
     persona = (Path(__file__).resolve().parents[1] / "docs" / "persona.md").read_text()
     assert "run_crew" in persona and "crew_status" in persona
     assert "Never say it is finished" in persona
+    assert "one spoken sentence" in persona and "straight answer" in persona
