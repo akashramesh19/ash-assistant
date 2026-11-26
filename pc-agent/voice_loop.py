@@ -31,9 +31,19 @@ from tts.piper_tts import speak  # noqa: E402
 RECORD_SECONDS = 5.0  # how long to wait for speech to start; recording ends on a pause
 
 
+def listen_for_question() -> str:
+    """Question turn. The wait for speech to start is short; the take can run to 20s."""
+    return whisper_stt.listen_and_transcribe(RECORD_SECONDS)
+
+
+def listen_for_confirmation() -> str:
+    """Yes/no. Both the wait and the hard cap are CONFIRM_SECONDS; a pause can end it sooner."""
+    return whisper_stt.listen_and_transcribe(CONFIRM_SECONDS, max_seconds=CONFIRM_SECONDS)
+
+
 def handle_turn(
     respond,
-    transcribe=lambda: whisper_stt.listen_and_transcribe(RECORD_SECONDS),
+    transcribe=listen_for_question,
     say=speak,
     log=print,
 ) -> None:
@@ -63,7 +73,7 @@ def handle_turn(
     log(f"[reply] {reply!r} (model {t_reply - t_heard:.1f}s)")
     if reply:
         say(reply)
-        log(f"[timing] speak {time.perf_counter() - t_reply:.1f}s; end of speech to reply ready {t_reply - t_heard:.1f}s")
+        log(f"[timing] speak {time.perf_counter() - t_reply:.1f}s; model interval {t_reply - t_heard:.1f}s")
 
 
 def make_announcer(say, audio_lock, log=print):
@@ -88,7 +98,7 @@ def main() -> None:
     # move_file asks "go ahead?" out loud and listens for the answer, instead of
     # waiting for a typed y/N. Anything but a clear yes is a no.
     move_file.set_confirmer(
-        make_spoken_confirmer(say=speak, listen=lambda: whisper_stt.listen_and_transcribe(CONFIRM_SECONDS))
+        make_spoken_confirmer(say=speak, listen=listen_for_confirmation)
     )
     audio_lock = threading.Lock()  # one thing at a time on the speakers and mic
 

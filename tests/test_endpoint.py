@@ -43,6 +43,35 @@ def test_noisy_room_raises_the_bar():
     assert run(levels) == round(5.0 / 0.03)
 
 
+def test_speech_between_500_and_1100_starts_at_the_first_chunks():
+    # Those levels are above the noise cap, so they must not set the floor.
+    # If they did, the bar would lock at 1200 and a later room dip would trim the opening off.
+    opening = [500, 700, 900, 1100, 800, 600] * 5
+    assert min(opening) >= 500 and max(opening) <= 1100
+    room = [QUIET] * 20  # shorter than the pause that ends a turn
+    rest = [800, 1000, 600] * 10
+    pause = [QUIET] * 80
+
+    endpointer = Endpointer()
+    for level in opening:
+        assert not endpointer.feed(level)
+    assert endpointer.speaking and endpointer.speech_start == 0 and endpointer.floor is None
+
+    for level in room + rest + pause:
+        if endpointer.feed(level):
+            break
+    assert endpointer.reason == "pause"
+    assert endpointer.speech_start == 0
+    assert endpointer.speech_end == len(opening) + len(room) + len(rest)
+
+    rate = 16000
+    block = int(rate * CHUNK_SECONDS)
+    samples = list(range(endpointer.chunks * block))
+    trimmed = trim_quiet_ends(samples, endpointer.speech_start, endpointer.speech_end, rate)
+    opening_span = len(opening) * block
+    assert trimmed[:opening_span] == samples[:opening_span]
+
+
 def test_hard_cap():
     assert run([LOUD] * 2000, max_seconds=2.0) == round(2.0 / 0.03)
 

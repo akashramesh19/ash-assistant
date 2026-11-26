@@ -110,11 +110,14 @@ def transcribe(wav_path: Path) -> str:
     return result["text"].strip()
 
 
-def listen_and_transcribe(no_speech_seconds: float = 5.0) -> str:
-    """Listen until the speaker finishes, then transcribe. The argument is how
-    long to wait for speech to start (it used to be a fixed recording length)."""
+def listen_and_transcribe(no_speech_seconds: float = 5.0, max_seconds: float = 20.0) -> str:
+    """Listen until the speaker finishes, then transcribe.
+
+    no_speech_seconds waits for speech to start. max_seconds is the hard cap
+    on the recording; a pause can still stop it earlier.
+    """
     global last_capture
-    wav_path, info = record(no_speech_seconds=no_speech_seconds)
+    wav_path, info = record(max_seconds=max_seconds, no_speech_seconds=no_speech_seconds)
     try:
         text = transcribe(wav_path)
     finally:
